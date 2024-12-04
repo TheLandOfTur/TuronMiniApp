@@ -27,7 +27,7 @@ func main() {
 	// Main update loop
 	for update := range updates {
 		if update.Message != nil { // Check if update contains a message
-			handlers.HandleMessage(bot, update.Message)
+			handlers.HandleMessage(bot, &update)
 		}
 	}
 

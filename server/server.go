@@ -12,7 +12,7 @@ type UserData struct {
 }
 
 // Simulate server request to get user data
-func getUserDataFromServer(credentials string) (*UserData, error) {
+func GetUserDataFromServer(credentials string) (*UserData, error) {
 	username := credentials[:len(credentials)-2]
 	url := fmt.Sprintf("http://example.com/api/user?username=%s", username)
 
