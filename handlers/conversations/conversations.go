@@ -3,6 +3,7 @@ package conversations
 import (
 	"sync"
 
+	"github.com/OzodbekX/TuronMiniApp/handlers/events"
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -53,6 +54,25 @@ func handleLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	bot.Send(msg)
 }
 
+func onchangeLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
+	lang := "uz"
+
+	switch update.Message.Text {
+	case "\U0001F1F7\U0001F1FA Русский":
+		lang = "ru"
+	case "\U0001F1FA\U0001F1FF O'zbekcha":
+		lang = "uz"
+	}
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		user.Language = lang
+		user.State = volumes.END_CONVERSATION
+	}
+
+	events.ShowMainMenu(bot, chatID, userSessions)
+}
+
 func handleLogin(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 	username := update.Message.Text
@@ -84,7 +104,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 		bot.Send(msg)
 
 		// Show the main menu
-		showMainMenu(bot, chatID)
+		events.ShowMainMenu(bot, chatID, userSessions)
 	} else {
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
 		bot.Send(msg)
@@ -95,20 +115,6 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 			user.State = volumes.LOGIN
 		}
 	}
-}
-
-func showMainMenu(bot *tgbotapi.BotAPI, chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "Main Menu:\n1. Option 1\n2. Option 2\n3. Option 3")
-	msg.ReplyMarkup = tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("Option 1"),
-			tgbotapi.NewKeyboardButton("Option 2"),
-		),
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("Option 3"),
-		),
-	)
-	bot.Send(msg)
 }
 
 func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
@@ -123,5 +129,10 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		handleLogin(bot, update, userSessions)
 	case volumes.PASSWORD:
 		handlePassword(bot, update, userSessions)
+	case volumes.CHANGE_LANGUAGE:
+		onchangeLanguage(bot, update, userSessions)
+	case volumes.SUBMIT_NAME, volumes.SUBMIT_PHONE:
+		HandleSubmissionConversation(bot, update, userSessions)
 	}
+
 }
