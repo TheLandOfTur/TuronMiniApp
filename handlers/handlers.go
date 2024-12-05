@@ -15,6 +15,8 @@ type UserSession struct {
 	Language string
 	Username string
 	Password string
+	Token    string
+	UserID   string
 }
 
 var userSessions = sync.Map{}
@@ -45,6 +47,10 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	}
 	if msg.Text == fmt.Sprintf("📝 %s", translations.GetTranslation(&userSessions, chatID, "Application")) {
 		events.SendRequestToBackend(bot, chatID, &userSessions)
+		return
+	}
+	if msg.Text == fmt.Sprintf("💰 %s", translations.GetTranslation(&userSessions, chatID, "Balance")) {
+		events.ShowUserBalance(bot, chatID, &userSessions)
 		return
 	}
 	if msg.Text == fmt.Sprintf("📊 %s", translations.GetTranslation(&userSessions, chatID, "Tariffs")) {
