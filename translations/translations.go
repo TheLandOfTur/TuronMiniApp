@@ -24,6 +24,13 @@ var (
 			"PleaseSelectOption":  "Илтимос, менюдан бўлимни танланг:",
 			"pleaseEnterYourName": "Пожалуйста, введите свое имя:",
 			"enterPhone":          "Введите номер телефона в следующем формате: +998#########",
+			"listOfTariffs":       "Список тарифов",
+			"price":               "Цена",
+			"speedByTime":         "Скорость по времени",
+			"mbs":                 "Мбит/с",
+			"uzs":                 "uzs",
+			"sharePhonenumber":    "Поделиться номером телефона",
+			"invalidPhoneNumber":  "Неверный формат номера телефона. Укажите действительный номер: +998######### или #########.",
 		},
 		"uz": {
 			"welcome":             "Xush kelibsiz! Iltimos, tilni tanlang.",
@@ -41,6 +48,13 @@ var (
 			"PleaseSelectOption":  "Iltimos, menyudan bo‘limni tanlang:",
 			"pleaseEnterYourName": "Iltimos, ismingizni kiriting:",
 			"enterPhone":          "Iltimos, telefon raqamingizni quyidagi formatda kiriting: +998#########",
+			"listOfTariffs":       "Tariflar ro'yxati",
+			"price":               "Narxi",
+			"speedByTime":         "Vaqt bo'yicha tezlik",
+			"mbs":                 "Mbit/s",
+			"uzs":                 "uzs",
+			"sharePhonenumber":    "Telefon raqamini ulashing",
+			"invalidPhoneNumber":  "Telefon raqami formati noto‘g‘ri. Iltimos, haqiqiy raqamni kiriting: +998######### yoki #########.",
 		},
 	}
 )

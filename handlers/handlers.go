@@ -47,6 +47,10 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		events.SendRequestToBackend(bot, chatID, &userSessions)
 		return
 	}
+	if msg.Text == fmt.Sprintf("📊 %s", translations.GetTranslation(&userSessions, chatID, "Tariffs")) {
+		events.ShowTariffList(bot, chatID, &userSessions)
+		return
+	}
 
 	conversations.HandleUpdateConversation(bot, update, &userSessions)
 

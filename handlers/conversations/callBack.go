@@ -48,7 +48,7 @@ func HandleSubmissionConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 		contactButton.RequestContact = true // Enable the contact request
 		keyboard := tgbotapi.NewReplyKeyboard(
 			tgbotapi.NewKeyboardButtonRow(
-				tgbotapi.NewKeyboardButton("\U0001F1F7\U0001F1FA Русский"),
+				contactButton,
 				tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
 			),
 		)

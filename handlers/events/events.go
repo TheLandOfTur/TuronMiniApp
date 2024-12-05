@@ -3,8 +3,10 @@ package events
 import (
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 
+	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -22,11 +24,11 @@ func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("📝 %s", translations.GetTranslation(userSessions, chatID, "Application"))),
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("💰 %s", translations.GetTranslation(userSessions, chatID, "Balance"))),
+			// tgbotapi.NewKeyboardButton(fmt.Sprintf("📝 %s", translations.GetTranslation(userSessions, chatID, "Application"))),
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("🌐 %s", translations.GetTranslation(userSessions, chatID, "Language"))),
 		),
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("💰 %s", translations.GetTranslation(userSessions, chatID, "Balance"))),
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("🚪 %s", translations.GetTranslation(userSessions, chatID, "Exit"))),
 		),
 	)
@@ -71,4 +73,47 @@ func SendRequestToBackend(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync
 		user.State = volumes.SUBMIT_NAME
 	}
 	bot.Send(reply)
+}
+
+func ShowTariffList(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+	// Replace with your server's endpoint
+
+	// Fetch objects
+	objects, err := server.FetchTariffsFromServer()
+	if err != nil {
+		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
+		bot.Send(msg)
+		return
+	}
+
+	// Helper function to convert seconds to hh:mm format
+	convertSecondsToHHMM := func(seconds int) string {
+		hours := seconds / 3600
+		minutes := (seconds % 3600) / 60
+		return fmt.Sprintf("%02d:%02d", hours, minutes) // Zero-padded format
+	}
+
+	// Prepare the message with all tariff data
+	var messageBuilder strings.Builder
+	messageBuilder.WriteString(fmt.Sprintf("%s:\n\n", translations.GetTranslation(userSessions, chatID, "listOfTariffs")))
+
+	for _, obj := range objects {
+		messageBuilder.WriteString(fmt.Sprintf("<b>%s</b>\n", obj.Name))
+		messageBuilder.WriteString(fmt.Sprintf("%s: %s%s\n", translations.GetTranslation(userSessions, chatID, "price"), volumes.AddSpacesEveryThreeDigits(obj.Price), translations.GetTranslation(userSessions, chatID, "uzs")))
+		messageBuilder.WriteString(fmt.Sprintf("%s:\n", translations.GetTranslation(userSessions, chatID, "speedByTime")))
+		for _, speed := range obj.SpeedByTime {
+			messageBuilder.WriteString(fmt.Sprintf("     %s - %s : %s %s \n",
+				convertSecondsToHHMM(speed.FromTime),
+				convertSecondsToHHMM(speed.ToTime),
+				fmt.Sprintf("%d", speed.Speed/1000),
+				translations.GetTranslation(userSessions, chatID, "mbs"),
+			))
+		}
+		messageBuilder.WriteString("\n") // Add spacing between tariffs
+	}
+
+	// Send the formatted message
+	msg := tgbotapi.NewMessage(chatID, messageBuilder.String())
+	msg.ParseMode = "HTML"
+	bot.Send(msg)
 }
