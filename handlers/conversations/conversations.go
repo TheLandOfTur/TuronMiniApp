@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"fmt"
+	"log"
 	"regexp"
 	"sync"
 
@@ -13,8 +14,12 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+var lastMessageIDs sync.Map // To track the last message sent by the bot
+
 func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
-	// Language selection
+
+	// Clear the user session
+	userSessions.Delete(chatID)
 	userSessions.Clear()
 	langKeyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -92,9 +97,10 @@ func handleLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	// msg.ReplyMarkup = langKeyboard
 	bot.Send(msg)
 }
+
 func isValidPhoneNumber(phoneNumber string) bool {
 	// Regex: starts with +998 followed by 9 digits OR just 9 digits
-	regex := regexp.MustCompile(`^(?:\+998)?\d{9}$`)
+	regex := regexp.MustCompile(`^(?:\+998|\b998)?\d{9}$`)
 	return regex.MatchString(phoneNumber)
 }
 
@@ -106,6 +112,7 @@ func handlePhoneNumber(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessio
 	if update.Message.Contact != nil {
 		phoneNumber = update.Message.Contact.PhoneNumber // Shared via contact button
 	} else {
+
 		phoneNumber = update.Message.Text // User manually enters the phone number
 	}
 
@@ -146,16 +153,50 @@ func handleLogin(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sy
 
 	// Prompt for password
 	msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPassword"))
-	bot.Send(msg)
+	sentMsg, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("Failed to send bot message: %v", err)
+	} else {
+		// Store the bot's message ID for future deletion
+		lastMessageIDs.Store(chatID, sentMsg.MessageID)
+	}
+
 }
+
+// DeleteUserMessage deletes the message sent by the user
+func deleteUserMessage(bot *tgbotapi.BotAPI, chatID int64, messageID int) {
+	deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
+	if _, err := bot.Send(deleteMsg); err != nil {
+		log.Printf("Failed to delete user message %d in chatID %d: %v", messageID, chatID, err)
+	}
+	// Retrieve and delete the bot's last message
+	if botMessageID, ok := lastMessageIDs.Load(chatID); ok {
+		deleteBotMsg := tgbotapi.NewDeleteMessage(chatID, botMessageID.(int))
+		if _, err := bot.Send(deleteBotMsg); err != nil {
+			log.Printf("Failed to delete bot message in chatID %d: %v", chatID, err)
+		}
+		// After deleting, remove it from the map
+		lastMessageIDs.Delete(chatID)
+	}
+}
+
 func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 	password := update.Message.Text
+
 	// Check if the user session exists
 	session, ok := userSessions.Load(chatID)
 	if !ok {
+		deleteUserMessage(bot, chatID, update.Message.MessageID)
 		msg := tgbotapi.NewMessage(chatID, "Session not found. Please start the login process again.")
 		bot.Send(msg)
+		sentMsg, err := bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send bot message: %v", err)
+		} else {
+			// Store the bot's message ID for future deletion
+			lastMessageIDs.Store(chatID, sentMsg.MessageID)
+		}
 		return
 	}
 
@@ -167,11 +208,18 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	token, err := server.LoginToBackend(user.Phone, user.Username, password, userID)
 	if err != nil {
 		// Login failed
-		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
-		bot.Send(msg)
+		deleteUserMessage(bot, chatID, update.Message.MessageID)
 
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
 		// Reset to password state
 		user.State = volumes.LOGIN
+		sentMsg, err := bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send bot message: %v", err)
+		} else {
+			// Store the bot's message ID for future deletion
+			lastMessageIDs.Store(chatID, sentMsg.MessageID)
+		}
 		return
 	}
 
@@ -183,20 +231,38 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	// Assuming `balanceData` is fetched and has the required fields
 	balanceData, err := server.GetUserData(token, user.Language)
 	if err != nil {
+		deleteUserMessage(bot, chatID, update.Message.MessageID)
+
 		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Failed to fetch balance data: %v", err))
-		bot.Send(msg)
+		sentMsg, err := bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send bot message: %v", err)
+		} else {
+			// Store the bot's message ID for future deletion
+			lastMessageIDs.Store(chatID, sentMsg.MessageID)
+		}
 		return
 	}
 	// Get the formatted subscription message
 	formattedMessage, err := helpers.GetSubscriptionMessage(balanceData, chatID, userSessions)
 	if err != nil {
+		deleteUserMessage(bot, chatID, update.Message.MessageID)
+
 		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error formatting subscription data: %v", err))
-		bot.Send(msg)
+		sentMsg, err := bot.Send(msg)
+		if err != nil {
+			log.Printf("Failed to send bot message: %v", err)
+		} else {
+			// Store the bot's message ID for future deletion
+			lastMessageIDs.Store(chatID, sentMsg.MessageID)
+		}
 		return
 	}
 
 	// Send the formatted message
 	msg := tgbotapi.NewMessage(chatID, formattedMessage)
+	deleteUserMessage(bot, chatID, update.Message.MessageID)
+
 	bot.Send(msg)
 	events.ShowMainMenu(bot, chatID, userSessions)
 }

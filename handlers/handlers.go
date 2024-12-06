@@ -57,7 +57,10 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		events.ShowTariffList(bot, chatID, &userSessions)
 		return
 	}
+	if msg.Text == fmt.Sprintf("❓ %s", translations.GetTranslation(&userSessions, chatID, "FAQ")) {
+		events.SendTelegramMessage(bot, chatID, &userSessions)
+		return
+	}
 
 	conversations.HandleUpdateConversation(bot, update, &userSessions)
-
 }
