@@ -92,5 +92,6 @@ func GetTranslation(userSessions *sync.Map, chatID int64, key string) string {
 	if text, ok := translations[lang][key]; ok {
 		return text
 	}
+
 	return key // Fallback to key if translation is missing
 }

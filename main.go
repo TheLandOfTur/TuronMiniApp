@@ -1,16 +1,16 @@
 package main
 
 import (
-	"flag"
 	"log"
 
 	"github.com/OzodbekX/TuronMiniApp/handlers" // Import the handlers package
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func main() {
-	token := mustToken()
+	token := helpers.MustToken()
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Fatalf("Error creating bot: %v", err)
@@ -30,14 +30,4 @@ func main() {
 			handlers.HandleMessage(bot, &update)
 		}
 	}
-
-}
-
-func mustToken() string {
-	token := flag.String("telegram-bot-token", "", "token for acces to telegram bot")
-	flag.Parse()
-	if *token == "" {
-		log.Fatal()
-	}
-	return *token
 }

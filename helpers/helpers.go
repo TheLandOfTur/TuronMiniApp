@@ -2,11 +2,14 @@ package helpers
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
+	"github.com/joho/godotenv"
 )
 
 func cutFirst16Chars(dateStr string) string {
@@ -70,8 +73,20 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 		translate("from")+" "+balanceData.StartPeriodDate+" "+translate("to")+" "+balanceData.EndPeriodDate,
 		translate("subscriptionActive"), // Translated "Subscription Active"
 		translate(subscriptionStatus),   // Translated "Active"/"Inactive"
-
 	)
 
 	return formattedMessage, nil
+}
+
+func MustToken() string {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	TOKEN := os.Getenv("TOKEN")
+	if TOKEN == "" {
+		log.Fatalf("TOKEN is not set in .env file")
+	}
+	return TOKEN
 }

@@ -42,6 +42,7 @@ func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 		log.Printf("Error sending main menu: %v", err)
 	}
 }
+
 func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	// Check if the user session exists
 	if session, ok := userSessions.Load(chatID); ok {
@@ -169,7 +170,10 @@ func ShowTariffList(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 
 	for _, obj := range objects {
 		messageBuilder.WriteString(fmt.Sprintf("<b>%s</b>\n", obj.Name))
-		messageBuilder.WriteString(fmt.Sprintf("%s: %s%s\n", translations.GetTranslation(userSessions, chatID, "price"), helpers.AddSpacesEveryThreeDigits(obj.Price), translations.GetTranslation(userSessions, chatID, "uzs")))
+		messageBuilder.WriteString(
+			fmt.Sprintf("%s: %s%s\n", translations.GetTranslation(userSessions, chatID, "price"),
+				helpers.AddSpacesEveryThreeDigits(obj.Price), translations.GetTranslation(userSessions, chatID, "uzs")),
+		)
 		messageBuilder.WriteString(fmt.Sprintf("%s:\n", translations.GetTranslation(userSessions, chatID, "speedByTime")))
 		for _, speed := range obj.SpeedByTime {
 			messageBuilder.WriteString(fmt.Sprintf("     %s - %s : %s %s \n",

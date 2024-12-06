@@ -5,12 +5,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type UserData struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
+}
+
+func getBaseUrl(apiPath string) string {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		log.Fatalf("BASE_URL is not set in .env file")
+	}
+	url := fmt.Sprintf("%s%s", baseURL, apiPath)
+	return url
 }
 
 // Simulate server request to get user data
@@ -61,9 +79,12 @@ type ResponseTpe struct {
 
 // Fetch objects from a server
 func FetchTariffsFromServer() ([]TariffObject, error) {
-	const url = "http://84.46.247.18/api/v1/internet-tariffs/public?offset=0&limit=100"
+	url := getBaseUrl("/api/v1/internet-tariffs/public?offset=0&limit=100")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
 	req.Header.Add("Language", `ru`)
 	resp, err := client.Do(req)
 	if err != nil {
@@ -106,7 +127,7 @@ type SubscriptionResponse struct {
 
 // GetUserData fetches user data from the server
 func GetUserData(token string, language string) (BalanceData, error) {
-	const url = "https://api.demo.tn.uz/api/v1/users/info"
+	url := getBaseUrl("/api/v1/users/info")
 
 	// Create HTTP client and request
 	client := &http.Client{}
@@ -148,37 +169,9 @@ func GetUserData(token string, language string) (BalanceData, error) {
 	return subscriptionResponse.Data, nil
 }
 
-// Fetch objects from a server
-func LogIn() ([]TariffObject, error) {
-	const url = "http://84.46.247.18/api/v1/sign-in-outside"
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", url, nil)
-	req.Header.Add("Language", `ru`)
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned status %d", resp.StatusCode)
-	}
-
-	var objects ResponseTpe
-
-	err = json.NewDecoder(resp.Body).Decode(&objects)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return objects.Data, nil
-}
-
 // LoginToBackend logs in to the backend with phoneNumber, login, and password
 func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (string, error) {
-	const url = "https://api.demo.tn.uz/api/v1/users/sign-in-outside"
+	url := getBaseUrl("/api/v1/users/sign-in-outside")
 
 	// Create a struct for the request payload
 	type LoginRequest struct {
