@@ -40,7 +40,7 @@ func RequestHandler(botApi *tgbotapi.BotAPI) http.HandlerFunc {
 			}
 
 			// Attempt to send the message
-			events.SendMessage(botApi, msg.ChatID, msg.Message)
+			events.SendMessage(botApi, msg.UserID, msg.Message)
 		}
 
 		// Prepare the response

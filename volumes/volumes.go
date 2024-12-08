@@ -24,7 +24,6 @@ type UserSession struct {
 type AlertRequestPayload struct {
 	Messages []struct {
 		UserID  int64  `json:"userId"`  // Telegram user ID
-		ChatID  int64  `json:"chatId"`  // Telegram user ID
 		Message string `json:"message"` // Message to send
 	} `json:"messages"` // Array of user-message pairs
 }
