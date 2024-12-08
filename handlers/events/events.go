@@ -192,14 +192,9 @@ func ShowTariffList(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 	bot.Send(msg)
 }
 
-// SendTelegramMessage sends a message with a link to @turonsupport Telegram account
-func SendTelegramMessage(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+func SendMessage(bot *tgbotapi.BotAPI, chatID int64, messageText string) {
 	// Message content
-	messageText := "Telegram: @turonsupport"
 	reply := tgbotapi.NewMessage(chatID, messageText)
-	if session, ok := userSessions.Load(chatID); ok {
-		user := session.(*volumes.UserSession)
-		user.State = volumes.SUBMIT_NAME
-	}
+	reply.ParseMode = "HTML"
 	bot.Send(reply)
 }

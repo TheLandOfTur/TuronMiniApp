@@ -203,6 +203,12 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	user := session.(*volumes.UserSession)
 	user.Password = password
 	userID := update.Message.From.ID
+	fmt.Print("wwwwwwwwwwwwwwww")
+	fmt.Print(userID)
+	fmt.Print("wwwwwwwwwwwwwww")
+
+	fmt.Print(chatID)
+	fmt.Print("wwwwwwwwwwwwwwww")
 
 	// Call backend login function
 	token, err := server.LoginToBackend(user.Phone, user.Username, password, userID)

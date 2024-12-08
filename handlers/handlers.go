@@ -58,7 +58,8 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		return
 	}
 	if msg.Text == fmt.Sprintf("❓ %s", translations.GetTranslation(&userSessions, chatID, "FAQ")) {
-		events.SendTelegramMessage(bot, chatID, &userSessions)
+		messageText := "Telegram: @turonsupport"
+		events.SendMessage(bot, chatID, messageText)
 		return
 	}
 

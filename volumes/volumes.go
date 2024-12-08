@@ -20,4 +20,13 @@ type UserSession struct {
 	Token    string
 }
 
+// RequestPayload represents the incoming HTTP request payload.
+type AlertRequestPayload struct {
+	Messages []struct {
+		UserID  int64  `json:"userId"`  // Telegram user ID
+		ChatID  int64  `json:"chatId"`  // Telegram user ID
+		Message string `json:"message"` // Message to send
+	} `json:"messages"` // Array of user-message pairs
+}
+
 const RemoteServerURL = "http://84.46.247.18/api/v1/internet-tariffs/public?offset=0&limit=100"
