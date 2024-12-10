@@ -274,7 +274,7 @@ type CategoryResponse struct {
 }
 
 func GetCategories(language string) ([]CategoryDataType, error) {
-	url := getBaseFAQUrl("api/faqCategory/v1")
+	url := getBaseFAQUrl("/api/faqCategory/v1")
 
 	// Create HTTP client and request
 	client := &http.Client{}
