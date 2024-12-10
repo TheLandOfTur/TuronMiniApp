@@ -331,7 +331,6 @@ func GetSubCategories(language, token string, categoryId, subCategoryId int64) (
 	if subCategoryId == -1 {
 		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d", categoryId)
 	} else {
-
 		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
 
 	}
