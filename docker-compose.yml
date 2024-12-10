@@ -1,0 +1,6 @@
+services:
+  turon-internet-bot-app:
+    container_name: turon-internet-bot-app
+    build: .
+    ports:
+      - "3032:3032"
