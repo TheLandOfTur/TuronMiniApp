@@ -321,3 +321,63 @@ func GetCategories(language string) ([]CategoryDataType, error) {
 	// Return the data
 	return subscriptionResponse.Data, nil
 }
+
+type SubCategoryDataType struct {
+	Id       int    `json:"id"`
+	Question string `json:"question"`
+	Answer   string `json:"Answer"`
+}
+type SubCategoryResponse struct {
+	Success bool                  `json:"success"`
+	Data    []SubCategoryDataType `json:"data"`
+}
+
+func GetSubCategories(language string, categoryId, subCategoryId *int64) ([]SubCategoryDataType, error) {
+	apiPath := fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
+	url := getBaseFAQUrl(apiPath)
+
+	// Create HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		req.Header.Add("Accept", "/")
+		return []SubCategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Add("Language", language)
+
+	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	var emptyArray = []SubCategoryDataType{}
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return emptyArray, fmt.Errorf("request failed: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	// Check for non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+
+		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+	// Decode the response
+	var subscriptionResponse SubCategoryResponse
+	body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+
+	if err := json.Unmarshal(body, &subscriptionResponse); err != nil {
+		return emptyArray, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Validate the response status
+	if subscriptionResponse.Success != true || !subscriptionResponse.Success {
+		return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
+	}
+
+	// Return the data
+	return subscriptionResponse.Data, nil
+}

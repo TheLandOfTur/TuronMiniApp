@@ -285,6 +285,6 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 	case volumes.CHANGE_LANGUAGE:
 		onchangeLanguage(bot, update, userSessions)
 	case volumes.SELECT_CATEGORY, volumes.SELECT_SUBCAT, volumes.SELECT_FAQ:
-		chat.HandleChatConversation(bot, update, userSessions)
+		chat.HandleChatConversation(bot, update, userSessions, user)
 	}
 }
