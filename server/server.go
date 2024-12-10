@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/OzodbekX/TuronMiniApp/volumes"
+	"github.com/joho/godotenv"
 )
 
 type UserData struct {
@@ -264,16 +266,12 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	return loginResponse.Data.AccessToken, nil
 }
 
-type CategoryDataType struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
-}
 type CategoryResponse struct {
-	Success bool               `json:"success"`
-	Data    []CategoryDataType `json:"data"`
+	Success bool                       `json:"success"`
+	Data    []volumes.CategoryDataType `json:"data"`
 }
 
-func GetCategories(language string) ([]CategoryDataType, error) {
+func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	url := getBaseFAQUrl("/api/faqCategory/v1")
 
 	// Create HTTP client and request
@@ -282,14 +280,14 @@ func GetCategories(language string) ([]CategoryDataType, error) {
 
 	if err != nil {
 		req.Header.Add("Accept", "/")
-		return []CategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
+		return []volumes.CategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
 	req.Header.Add("Language", language)
 
 	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	var emptyArray = []CategoryDataType{}
+	var emptyArray = []volumes.CategoryDataType{}
 
 	// Perform the request
 	resp, err := client.Do(req)
@@ -322,18 +320,24 @@ func GetCategories(language string) ([]CategoryDataType, error) {
 	return subscriptionResponse.Data, nil
 }
 
-type SubCategoryDataType struct {
-	Id       int    `json:"id"`
-	Question string `json:"question"`
-	Answer   string `json:"Answer"`
-}
 type SubCategoryResponse struct {
-	Success bool                  `json:"success"`
-	Data    []SubCategoryDataType `json:"data"`
+	Success bool                          `json:"success"`
+	Data    []volumes.SubCategoryDataType `json:"data"`
 }
 
-func GetSubCategories(language string, categoryId, subCategoryId *int64) ([]SubCategoryDataType, error) {
-	apiPath := fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
+func GetSubCategories(language, token string, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
+
+	var apiPath string
+	if subCategoryId == -1 {
+		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d", categoryId)
+	} else {
+
+		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
+
+	}
+	fmt.Printf("apiPath222222222222222222")
+	fmt.Println(apiPath)
+
 	url := getBaseFAQUrl(apiPath)
 
 	// Create HTTP client and request
@@ -342,20 +346,22 @@ func GetSubCategories(language string, categoryId, subCategoryId *int64) ([]SubC
 
 	if err != nil {
 		req.Header.Add("Accept", "/")
-		return []SubCategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
+		return []volumes.SubCategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
 	req.Header.Add("Language", language)
 
-	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	var emptyArray = []SubCategoryDataType{}
+	fmt.Println("\n" + token + "\n")
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	var emptyArray = []volumes.SubCategoryDataType{}
 
 	// Perform the request
 	resp, err := client.Do(req)
 	if err != nil {
 		return emptyArray, fmt.Errorf("request failed: %w", err)
 	}
+	fmt.Println(resp)
 
 	defer resp.Body.Close()
 

@@ -2,134 +2,157 @@ package chat
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"strconv"
-	"sync"
 )
 
-// UserSession holds the conversation state for a user
-type UserSession struct {
-	State            string
-	SelectedCategory int
-	SelectedSubCat   int
-}
-
-// Example data
-var categories = []struct {
-	ID   int
-	Name string
-}{
-	{ID: 1, Name: "Internet"},
-	{ID: 2, Name: "Mobile"},
-}
-
-var subCategories = []struct {
-	ID       int
-	Position int
-	Question string
-	Type     string
-}{
-	{ID: 1, Position: 1, Question: "Оплата и баланс", Type: "PASS_TO_DEFAULT"},
-	{ID: 2, Position: 2, Question: "Как подключиться", Type: "FAQ"},
-}
+var cachedCategories []volumes.CategoryDataType       // Assuming the type returned by server.GetCategories is server.Category
+var cachedSubCategories []volumes.SubCategoryDataType // Assuming the type returned by server.GetCategories is server.Category
 
 func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 
-	selectedCategory, err := strconv.ParseInt(update.Message.Text, 10, 64)
-	if err != nil {
-		fmt.Println("Error:", err)
+	selectedCategoryName := update.Message.Text
+
+	var selectedCategoryID int64
+	found := false
+	// Find the ID of the category based on its name
+	for _, category := range cachedCategories {
+		if category.Name == selectedCategoryName {
+			selectedCategoryID = category.Id
+			found = true
+			break
+		}
+	}
+	if !found {
+		// If no matching category found, send an error message to the user
+		bot.Send(tgbotapi.NewMessage(chatID, "Invalid category selected. Please try again."))
 		return
 	}
+
 	lang := "uz"
+	token := ""
 
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-		user.SelectedCategory = selectedCategory
-		user.State = volumes.SUBMIT_PHONE
+		user.SelectedCategoryId = selectedCategoryID
 		lang = user.Language
-
+		token = user.Token
 	}
-
+	var err error
 	// If there's a valid token, fetch the user balance
-	subCategories, err := server.GetSubCategories(lang, &selectedCategory, nil)
-	fmt.Println("2222222222222222222")
-	fmt.Println(subCategories)
+	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, -1)
 
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
 		bot.Send(msg)
 		return
 	}
-	fmt.Println(subCategories)
+	// Create a new keyboard with category buttons
+	var keyboard [][]tgbotapi.KeyboardButton
 
-	contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhonenumber")))
-	contactButton.RequestContact = true // Enable the contact request
-
-	keyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(
-			contactButton,
-		),
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
-		),
-	)
-	keyboard.OneTimeKeyboard = true // Show keyboard only once
-	keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
-
-	msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPhone"))
-	msg.ReplyMarkup = keyboard
-
-	// langKeyboard := tgbotapi.NewReplyKeyboard(
-	// 	tgbotapi.NewKeyboardButtonRow(
-	// 		tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "cancel")),
-	// 		tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
-	// 	),
-	// )
-	// msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "login"))
-	// msg.ReplyMarkup = langKeyboard
-	bot.Send(msg)
-}
-
-func sendSubCategories(bot *tgbotapi.BotAPI, chatID int64, categoryID int) {
-	message := "Please select a subcategory:\n"
-	for _, sub := range subCategories {
-		message += sub.Question + "\n"
+	// Map cachedSubCategories to keyboard buttons
+	var row []tgbotapi.KeyboardButton
+	for _, category := range cachedSubCategories {
+		button := tgbotapi.NewKeyboardButton(category.Question)
+		row = append(row, button)
 	}
-	bot.Send(tgbotapi.NewMessage(chatID, message))
+	// Add the row of buttons to the keyboard
+	keyboard = append(keyboard, row)
+
+	// Add the "main menu" button at the bottom
+	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
+	keyboard = append(keyboard, []tgbotapi.KeyboardButton{mainMenuButton})
+
+	// Create the keyboard markup
+	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+
+	// Send the message with the keyboard
+	message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
+	message.ReplyMarkup = replyMarkup
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		user.State = volumes.SELECT_FAQ
+	}
+	bot.Send(message)
 }
 
-func sendFAQ(bot *tgbotapi.BotAPI, chatID int64, faq string) {
-	bot.Send(tgbotapi.NewMessage(chatID, "FAQ: "+faq))
-}
+func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
 
-func getCategory(input string) *struct {
-	ID   int
-	Name string
-} {
-	for _, cat := range categories {
-		if cat.Name == input {
-			return &cat
+	selectedFAQName := update.Message.Text
+
+	var selectedSubCategoryID int64
+	var selectedSubCategoryAnswer string
+	fmt.Printf("wwwwwwwwwwwwwwwwww")
+	fmt.Println(cachedSubCategories)
+
+	// Find the ID of the category based on its name
+	for _, category := range cachedSubCategories {
+		if category.Question == selectedFAQName {
+			selectedSubCategoryID = category.Id
+			selectedSubCategoryAnswer = category.Answer
+			break
 		}
 	}
-	return nil
-}
 
-func getSubCategory(input string) *struct {
-	ID       int
-	Position int
-	Question string
-	Type     string
-} {
-	for _, sub := range subCategories {
-		if sub.Question == input {
-			return &sub
-		}
+	lang := "uz"
+	token := ""
+	var selectedCategoryID int64
+
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		user.SelectedSubCategoryId = selectedSubCategoryID
+		lang = user.Language
+		selectedCategoryID = user.SelectedCategoryId
+		token = user.Token
 	}
-	return nil
+	var err error
+	// If there's a valid token, fetch the user balance
+	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, selectedSubCategoryID)
+	fmt.Println("cachedSubCategories")
+	fmt.Println(cachedSubCategories)
+
+	if err != nil {
+		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
+		bot.Send(msg)
+		return
+	}
+	// Create a new keyboard with category buttons
+	var keyboard [][]tgbotapi.KeyboardButton
+
+	// Map cachedSubCategories to keyboard buttons
+	var row []tgbotapi.KeyboardButton
+	for _, category := range cachedSubCategories {
+		button := tgbotapi.NewKeyboardButton(category.Question)
+		row = append(row, button)
+	}
+	// Add the row of buttons to the keyboard
+	keyboard = append(keyboard, row)
+
+	// Add the "main menu" button at the bottom
+	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
+	keyboard = append(keyboard, []tgbotapi.KeyboardButton{mainMenuButton})
+
+	// Create the keyboard markup
+	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+	var message tgbotapi.MessageConfig
+
+	if len(selectedSubCategoryAnswer) > 0 {
+		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
+
+	} else {
+		message = tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
+
+	}
+
+	// Send the message with the keyboard
+	message.ReplyMarkup = replyMarkup
+	bot.Send(message)
 }
 
 func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
@@ -173,22 +196,21 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			bot.Send(msg)
 			return
 		}
-
-		// If there's a valid token, fetch the user balance
-		categories, err := server.GetCategories(user.Language)
-
-		if err != nil {
-			msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
-			bot.Send(msg)
-			return
+		if len(cachedCategories) == 0 {
+			var err error
+			cachedCategories, err = server.GetCategories(user.Language)
+			if err != nil {
+				bot.Send(tgbotapi.NewMessage(chatID, "Error fetching data from the server."))
+				return
+			}
 		}
+
 		// Create a new keyboard with category buttons
 		var keyboard [][]tgbotapi.KeyboardButton
 
-		// Map categories to keyboard buttons
-		fmt.Println(categories)
+		// Map cachedCategories to keyboard buttons
 		var row []tgbotapi.KeyboardButton
-		for _, category := range categories {
+		for _, category := range cachedCategories {
 			button := tgbotapi.NewKeyboardButton(category.Name)
 			row = append(row, button)
 		}
@@ -214,29 +236,14 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 }
 
 func HandleChatConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map, user *volumes.UserSession) {
-	chatID := update.Message.Chat.ID
 
 	switch user.State {
 	case volumes.SELECT_CATEGORY:
 		handleCategorySelect(bot, update, userSessions)
-		user.State = volumes.SELECT_SUBCAT
-
-	case volumes.SELECT_SUBCAT:
-		selectedCategory := getCategory(update.Message.Text)
-		if selectedCategory != nil {
-			//sendSubCategories(bot, chatID, user.SelectedCategory)
-			user.State = volumes.SELECT_FAQ
-		}
+		user.State = volumes.SELECT_FAQ
 
 	case volumes.SELECT_FAQ:
-		subCat := getSubCategory(update.Message.Text)
-		if subCat != nil {
-			if subCat.Type == "FAQ" {
-				sendFAQ(bot, chatID, subCat.Question)
-			} else {
-				// Handle default action if not FAQ
-				bot.Send(tgbotapi.NewMessage(chatID, "This subcategory doesn't have an FAQ. Moving to the default flow."))
-			}
-		}
+		handleSubCategorySelect(bot, update, userSessions)
+		user.State = volumes.SELECT_FAQ
 	}
 }

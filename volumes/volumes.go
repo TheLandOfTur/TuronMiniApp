@@ -9,21 +9,21 @@ const (
 	SUBMIT_NAME      = "SUBMIT_NAME"
 	SUBMIT_PHONE     = "SUBMIT_PHONE"
 	SELECT_CATEGORY  = "SELECT_CATEGORY"
-	SELECT_SUBCAT    = "SELECT_SUBCAT"
 	SELECT_FAQ       = "SELECT_FAQ"
 )
 
 type UserSession struct {
-	State               string
-	Language            string
-	Username            string
-	Name                string
-	Phone               string
-	Password            string
-	Token               string
-	SelectedCategory    int64
-	SelectedSubCategory int64
+	State                 string
+	Language              string
+	Username              string
+	Name                  string
+	Phone                 string
+	Password              string
+	Token                 string
+	SelectedCategoryId    int64
+	SelectedSubCategoryId int64
 }
+
 type Message struct {
 	Uz string `json:"uz,omitempty"` // Telegram user ID (optional)
 	Ru string `json:"ru,omitempty"` // Message in Russian (optional)
@@ -36,4 +36,14 @@ type AlertRequestPayload struct {
 		UserID  int64   `json:"userId"`  // Telegram user ID
 		Message Message `json:"message"` // Message to send
 	} `json:"messages"` // Array of user-message pairs
+}
+type CategoryDataType struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type SubCategoryDataType struct {
+	Id       int64  `json:"id"`
+	Question string `json:"question"`
+	Answer   string `json:"answer,omitempty"`
 }
