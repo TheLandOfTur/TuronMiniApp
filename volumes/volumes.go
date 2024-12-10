@@ -8,24 +8,32 @@ const (
 	CHANGE_LANGUAGE  = "CHANGE_LANGUAGE"
 	SUBMIT_NAME      = "SUBMIT_NAME"
 	SUBMIT_PHONE     = "SUBMIT_PHONE"
+	SELECT_CATEGORY  = "SELECT_CATEGORY"
+	SELECT_SUBCAT    = "SELECT_SUBCAT"
+	SELECT_FAQ       = "SELECT_FAQ"
 )
 
 type UserSession struct {
-	State    string
-	Language string
-	Username string
-	Name     string
-	Phone    string
-	Password string
-	Token    string
+	State               string
+	Language            string
+	Username            string
+	Name                string
+	Phone               string
+	Password            string
+	Token               string
+	SelectedCategory    int64
+	SelectedSubCategory int64
+}
+type Message struct {
+	Uz string `json:"uz,omitempty"` // Telegram user ID (optional)
+	Ru string `json:"ru,omitempty"` // Message in Russian (optional)
+	En string `json:"en,omitempty"` // Message in English (optional)
 }
 
 // RequestPayload represents the incoming HTTP request payload.
 type AlertRequestPayload struct {
 	Messages []struct {
-		UserID  int64  `json:"userId"`  // Telegram user ID
-		Message string `json:"message"` // Message to send
+		UserID  int64   `json:"userId"`  // Telegram user ID
+		Message Message `json:"message"` // Message to send
 	} `json:"messages"` // Array of user-message pairs
 }
-
-const RemoteServerURL = "http://84.46.247.18/api/v1/internet-tariffs/public?offset=0&limit=100"

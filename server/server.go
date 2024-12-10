@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/joho/godotenv"
 )
 
 type UserData struct {
@@ -28,6 +27,19 @@ func getBaseUrl(apiPath string) string {
 		log.Fatalf("BASE_URL is not set in .env file")
 	}
 	url := fmt.Sprintf("%s%s", baseURL, apiPath)
+	return url
+}
+func getBaseFAQUrl(apiPath string) string {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	BASE_FAQ_URL := os.Getenv("BASE_FAQ_URL")
+	if BASE_FAQ_URL == "" {
+		log.Fatalf("BASE_FAQ_URL is not set in .env file")
+	}
+	url := fmt.Sprintf("%s%s", BASE_FAQ_URL, apiPath)
 	return url
 }
 
@@ -200,6 +212,7 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 		PhoneNumber:    phoneNumber,
 		TelegramUserID: string(telegramUserID),
 	}
+	fmt.Print(telegramUserID)
 
 	// Encode payload to JSON
 	jsonPayload, err := json.Marshal(payload)
@@ -230,7 +243,7 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
-	fmt.Print(resp.StatusCode)
+
 	// Check for non-200 response codes
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
@@ -249,4 +262,62 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 
 	// Return the access token
 	return loginResponse.Data.AccessToken, nil
+}
+
+type CategoryDataType struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
+}
+type CategoryResponse struct {
+	Success bool               `json:"success"`
+	Data    []CategoryDataType `json:"data"`
+}
+
+func GetCategories(language string) ([]CategoryDataType, error) {
+	url := getBaseFAQUrl("api/faqCategory/v1")
+
+	// Create HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+
+	if err != nil {
+		req.Header.Add("Accept", "/")
+		return []CategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Add("Language", language)
+
+	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	var emptyArray = []CategoryDataType{}
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return emptyArray, fmt.Errorf("request failed: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	// Check for non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+
+		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+	// Decode the response
+	var subscriptionResponse CategoryResponse
+	body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+
+	if err := json.Unmarshal(body, &subscriptionResponse); err != nil {
+		return emptyArray, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	// Validate the response status
+	if subscriptionResponse.Success != true || !subscriptionResponse.Success {
+		return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
+	}
+
+	// Return the data
+	return subscriptionResponse.Data, nil
 }

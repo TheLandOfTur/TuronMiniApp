@@ -34,13 +34,27 @@ func RequestHandler(botApi *tgbotapi.BotAPI) http.HandlerFunc {
 		// Iterate over each user-message pair and send messages
 		var failedMessages []string
 		for _, msg := range reqPayload.Messages {
-			if msg.UserID == 0 || msg.Message == "" {
+			if msg.UserID == 0 || (msg.Message.Ru == "" && msg.Message.Uz == "" && msg.Message.En == "") {
 				failedMessages = append(failedMessages, fmt.Sprintf("Invalid data for UserID %d", msg.UserID))
 				continue
 			}
+			var NewMessage = ""
+
+			if msg.Message.Uz != "" {
+				NewMessage = fmt.Sprintf("%s \n%s", NewMessage, msg.Message.Uz)
+
+			}
+			if msg.Message.Ru != "" {
+				NewMessage = fmt.Sprintf("%s \n%s", NewMessage, msg.Message.Ru)
+
+			}
+			if msg.Message.En != "" {
+				NewMessage = fmt.Sprintf("%s \n%s", NewMessage, msg.Message.En)
+
+			}
 
 			// Attempt to send the message
-			events.SendMessage(botApi, msg.UserID, msg.Message)
+			events.SendMessage(botApi, msg.UserID, NewMessage)
 		}
 
 		// Prepare the response

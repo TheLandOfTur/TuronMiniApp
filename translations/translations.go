@@ -42,7 +42,7 @@ var (
 			"subscriptionActive":   "Подписка активна",
 			"active":               "Активно",   // Active in Russian
 			"inactive":             "Неактивно", // Inactive in Russian
-
+			"pleaseSelectCategory": "Пожалуйста, выберите категорию:",
 		},
 		"uz": {
 			"welcome":              "Xush kelibsiz! Iltimos, tilni tanlang.",
@@ -78,7 +78,7 @@ var (
 			"subscriptionActive":   "Obuna faolligi",
 			"active":               "Faol",    // Active in Uzbek
 			"inactive":             "No Faol", // Inactive in Uzbek
-
+			"pleaseSelectCategory": "Kategoriya tanlang::",
 		},
 	}
 )

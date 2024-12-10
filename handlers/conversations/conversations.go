@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
 	"log"
 	"regexp"
 	"sync"
@@ -283,7 +284,7 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		handlePhoneNumber(bot, update, userSessions)
 	case volumes.CHANGE_LANGUAGE:
 		onchangeLanguage(bot, update, userSessions)
-		// case volumes.SUBMIT_NAME, volumes.SUBMIT_PHONE:
-		// 	HandleSubmissionConversation(bot, update, userSessions)
+	case volumes.SELECT_CATEGORY, volumes.SELECT_SUBCAT, volumes.SELECT_FAQ:
+		chat.HandleChatConversation(bot, update, userSessions)
 	}
 }

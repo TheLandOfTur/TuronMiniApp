@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/handlers/conversations"
@@ -9,15 +10,6 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
-
-type UserSession struct {
-	State    string
-	Language string
-	Username string
-	Password string
-	Token    string
-	UserID   string
-}
 
 var userSessions = sync.Map{}
 
@@ -58,8 +50,10 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		return
 	}
 	if msg.Text == fmt.Sprintf("❓ %s", translations.GetTranslation(&userSessions, chatID, "FAQ")) {
-		messageText := "Telegram: @turonsupport"
-		events.SendMessage(bot, chatID, messageText)
+		//messageText := "Telegram: @turonsupport"
+		//events.SendMessage(bot, chatID, messageText)
+		chat.ShowCategories(bot, chatID, &userSessions)
+
 		return
 	}
 

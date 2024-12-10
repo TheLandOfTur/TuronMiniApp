@@ -25,7 +25,7 @@ func main() {
 
 	updates := bot.GetUpdatesChan(u)
 	// Register the requestHandler with the HTTP server
-	http.HandleFunc("/send-messages", listeners.RequestHandler(bot))
+	http.HandleFunc("/api/send-messages", listeners.RequestHandler(bot))
 	port := ":8080" // Change this to any available port
 	log.Printf("Starting server on port %s", port)
 	go func() {
