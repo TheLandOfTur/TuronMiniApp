@@ -69,6 +69,7 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+	replyMarkup.ResizeKeyboard = true
 
 	// Send the message with the keyboard
 	message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
@@ -138,6 +139,8 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+	replyMarkup.ResizeKeyboard = true
+
 	var message tgbotapi.MessageConfig
 
 	if selectedSubCategoryAnswer != "" {
@@ -221,6 +224,7 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 
 		// Create the keyboard markup
 		replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+		replyMarkup.ResizeKeyboard = true
 
 		// Send the message with the keyboard
 		message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectCategory"))
