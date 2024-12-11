@@ -302,7 +302,7 @@ type SubCategoryResponse struct {
 	Data    []volumes.SubCategoryDataType `json:"data"`
 }
 
-func GetSubCategories(language, token string, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
+func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
 
 	var apiPath string
 	if subCategoryId == -1 {
@@ -324,9 +324,7 @@ func GetSubCategories(language, token string, categoryId, subCategoryId int64) (
 	}
 
 	// Set headers
-	req.Header.Add("Language", language)
-
-	fmt.Println("\n" + token + "\n")
+	req.Header.Add("Language", lang)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	var emptyArray = []volumes.SubCategoryDataType{}
 
@@ -342,7 +340,6 @@ func GetSubCategories(language, token string, categoryId, subCategoryId int64) (
 	// Check for non-200 status codes
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
-
 		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 	// Decode the response
@@ -358,6 +355,7 @@ func GetSubCategories(language, token string, categoryId, subCategoryId int64) (
 		return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
 	}
 	fmt.Printf("apiPath222222222222222222")
+	fmt.Printf("\n" + apiPath)
 	fmt.Println(subscriptionResponse.Data)
 
 	// Return the data

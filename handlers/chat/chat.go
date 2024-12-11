@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/server"
@@ -88,13 +89,11 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	var selectedSubCategoryID int64
 	var selectedSubCategoryAnswer string
-	fmt.Printf("wwwwwwwwwwwwwwwwww")
-	fmt.Println(cachedSubCategories)
 
 	// Find the ID of the category based on its name
 
 	for _, category := range cachedSubCategories {
-		if category.Question == selectedFAQName {
+		if strings.TrimSpace(category.Question) == strings.TrimSpace(selectedFAQName) {
 			selectedSubCategoryID = category.Id
 			selectedSubCategoryAnswer = category.Answer
 			break
@@ -115,8 +114,6 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	var err error
 	// If there's a valid token, fetch the user balance
 	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, selectedSubCategoryID)
-	fmt.Println("cachedSubCategories")
-	fmt.Println(cachedSubCategories)
 
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
@@ -144,8 +141,13 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
 	var message tgbotapi.MessageConfig
+	fmt.Printf("selectedSubCategoryAnswer\n")
+	fmt.Printf(selectedSubCategoryAnswer)
+	fmt.Printf("\nselectedSubCategoryAnswer")
+	fmt.Println(cachedSubCategories)
+	fmt.Printf("\nselectedSubCategoryAnswer")
 
-	if len(selectedSubCategoryAnswer) > 0 {
+	if selectedSubCategoryAnswer != "" {
 		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
 
 	} else {

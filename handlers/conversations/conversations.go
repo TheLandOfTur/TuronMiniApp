@@ -211,7 +211,6 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	if err != nil {
 		// Login failed
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
-
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
 		// Reset to password state
 		user.State = volumes.LOGIN
@@ -226,7 +225,8 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	}
 
 	// If login is successful
-	user.State = volumes.END_CONVERSATION
+	fmt.Printf("token")
+	fmt.Printf(token)
 
 	// Save the token to the session if needed
 	user.Token = token
@@ -234,8 +234,10 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	balanceData, err := server.GetUserData(token, user.Language)
 	if err != nil {
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
 
-		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Failed to fetch balance data: %v", err))
+		user.State = volumes.LOGIN
+
 		sentMsg, err := bot.Send(msg)
 		if err != nil {
 			log.Printf("Failed to send bot message: %v", err)
@@ -250,8 +252,10 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	if err != nil {
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
 
-		msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error formatting subscription data: %v", err))
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))
 		sentMsg, err := bot.Send(msg)
+		user.State = volumes.LOGIN
+
 		if err != nil {
 			log.Printf("Failed to send bot message: %v", err)
 		} else {
@@ -267,6 +271,8 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 
 	bot.Send(msg)
 	events.ShowMainMenu(bot, chatID, userSessions)
+	user.State = volumes.END_CONVERSATION
+
 }
 
 func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
