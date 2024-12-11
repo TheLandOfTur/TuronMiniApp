@@ -224,10 +224,6 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 		return
 	}
 
-	// If login is successful
-	fmt.Printf("token")
-	fmt.Printf(token)
-
 	// Save the token to the session if needed
 	user.Token = token
 	// Assuming `balanceData` is fetched and has the required fields

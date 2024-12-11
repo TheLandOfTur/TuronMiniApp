@@ -191,7 +191,6 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 		PhoneNumber:    phoneNumber,
 		TelegramUserID: string(telegramUserID),
 	}
-	fmt.Print(telegramUserID)
 
 	// Encode payload to JSON
 	jsonPayload, err := json.Marshal(payload)
@@ -354,9 +353,6 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 	if subscriptionResponse.Success != true || !subscriptionResponse.Success {
 		return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
 	}
-	fmt.Printf("apiPath222222222222222222")
-	fmt.Printf("\n" + apiPath)
-	fmt.Println(subscriptionResponse.Data)
 
 	// Return the data
 	return subscriptionResponse.Data, nil

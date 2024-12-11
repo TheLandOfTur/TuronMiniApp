@@ -58,8 +58,8 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 
 	// Map cachedSubCategories to keyboard buttons
 	var row []tgbotapi.KeyboardButton
-	for _, category := range cachedSubCategories {
-		button := tgbotapi.NewKeyboardButton(category.Question)
+	for _, subCategory := range cachedSubCategories {
+		button := tgbotapi.NewKeyboardButton(subCategory.Question)
 		row = append(row, button)
 	}
 	// Add the row of buttons to the keyboard
@@ -141,11 +141,6 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
 	var message tgbotapi.MessageConfig
-	fmt.Printf("selectedSubCategoryAnswer\n")
-	fmt.Printf(selectedSubCategoryAnswer)
-	fmt.Printf("\nselectedSubCategoryAnswer")
-	fmt.Println(cachedSubCategories)
-	fmt.Printf("\nselectedSubCategoryAnswer")
 
 	if selectedSubCategoryAnswer != "" {
 		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
