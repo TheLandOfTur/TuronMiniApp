@@ -23,15 +23,13 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	found := false
 	// Find the ID of the category based on its name
 	for _, category := range cachedCategories {
-		if category.Name == selectedCategoryName {
+		if strings.TrimSpace(category.Name) == strings.TrimSpace(selectedCategoryName) {
 			selectedCategoryID = category.Id
 			found = true
 			break
 		}
 	}
 	if !found {
-		// If no matching category found, send an error message to the user
-		bot.Send(tgbotapi.NewMessage(chatID, "Invalid category selected. Please try again."))
 		return
 	}
 
