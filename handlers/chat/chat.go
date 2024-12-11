@@ -92,6 +92,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	fmt.Println(cachedSubCategories)
 
 	// Find the ID of the category based on its name
+
 	for _, category := range cachedSubCategories {
 		if category.Question == selectedFAQName {
 			selectedSubCategoryID = category.Id
@@ -127,12 +128,14 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Map cachedSubCategories to keyboard buttons
 	var row []tgbotapi.KeyboardButton
-	for _, category := range cachedSubCategories {
-		button := tgbotapi.NewKeyboardButton(category.Question)
-		row = append(row, button)
+	if len(cachedSubCategories) > 0 {
+		for _, category := range cachedSubCategories {
+			button := tgbotapi.NewKeyboardButton(category.Question)
+			row = append(row, button)
+		}
+		// Add the row of buttons to the keyboard
+		keyboard = append(keyboard, row)
 	}
-	// Add the row of buttons to the keyboard
-	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
