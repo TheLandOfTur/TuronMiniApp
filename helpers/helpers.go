@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/volumes"
 	"log"
 	"os"
 	"strings"
@@ -28,6 +29,9 @@ func cutFirst16Chars(dateStr string) string {
 func AddSpacesEveryThreeDigits(number int) string {
 	numStr := fmt.Sprintf("%d", number) // Convert the number to a string
 	var result strings.Builder
+	if number < 999 {
+		return numStr
+	}
 
 	// Iterate over the string in reverse
 	length := len(numStr)
@@ -47,16 +51,31 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 	translate := func(key string) string {
 		return translations.GetTranslation(userSessions, chatID, key)
 	}
+	translateDate := func() string {
+		lang := "uz"
+		if session, ok := userSessions.Load(chatID); ok {
+			user := session.(*volumes.UserSession)
+			lang = user.Language
+		}
+		if lang == "uz" {
+			return balanceData.StartPeriodDate + " " + translate("from") + " " + balanceData.EndPeriodDate + " " + translate("to")
+
+		} else {
+			return translate("from") + " " + balanceData.StartPeriodDate + " " + translate("to") + " " + balanceData.EndPeriodDate
+		}
+	}
 	subscriptionStatus := "inactive" // default to inactive
 	if balanceData.SubscriptionStatus {
 		subscriptionStatus = "active"
 	}
+	fmt.Printf("3333333333333333333333")
+	fmt.Println(balanceData.SubscriptionPrice)
 
 	// Create the message with translated fields
 	formattedMessage := fmt.Sprintf(
-		"%s: %s%s\n"+
+		"%s: %s %s\n"+
 			"%s: %s\n"+
-			"%s: %d\n"+
+			"%s: %s %s\n"+
 			"%s: %s\n"+
 			"%s: %s\n"+
 			"%s: %s",
@@ -66,11 +85,12 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 		translate("tariffName"), // Translated "Tariff Name"
 		balanceData.TariffName,
 		translate("subscriptionPrice"), // Translated "Subscription Price"
-		balanceData.SubscriptionPrice,
+		AddSpacesEveryThreeDigits(int(balanceData.SubscriptionPrice)),
+		translate("uzs"),
 		translate("nextSubscriptionDate"), // Translated "Next Subscription Date"
 		cutFirst16Chars(balanceData.NextSubscriptionDate),
 		translate("subscriptionPeriod"), // Translated "Subscription Period"
-		translate("from")+" "+balanceData.StartPeriodDate+" "+translate("to")+" "+balanceData.EndPeriodDate,
+		translateDate(),
 		translate("subscriptionActive"), // Translated "Subscription Active"
 		translate(subscriptionStatus),   // Translated "Active"/"Inactive"
 	)
