@@ -13,6 +13,8 @@ import (
 
 func main() {
 	token := helpers.MustToken()
+	// Start Socket.IO server in a goroutine
+
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		log.Fatalf("Error creating bot: %v", err)

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	socketio_client "github.com/zhouhui8915/go-socket.io-client"
 	"strings"
 	"sync"
 
@@ -91,16 +92,17 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Find the ID of the category based on its name
 
-	for _, category := range cachedSubCategories {
-		if strings.TrimSpace(category.Question) == strings.TrimSpace(selectedFAQName) {
-			selectedSubCategoryID = category.Id
-			selectedSubCategoryAnswer = category.Answer
+	for _, subCategory := range cachedSubCategories {
+		if strings.TrimSpace(subCategory.Question) == strings.TrimSpace(selectedFAQName) {
+			selectedSubCategoryID = subCategory.Id
+			selectedSubCategoryAnswer = subCategory.Answer
 			break
 		}
 	}
 
 	lang := "uz"
 	token := ""
+	var client *socketio_client.Client
 	var selectedCategoryID int64
 
 	if session, ok := userSessions.Load(chatID); ok {
@@ -109,6 +111,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		lang = user.Language
 		selectedCategoryID = user.SelectedCategoryId
 		token = user.Token
+		client = user.Client
 	}
 	var err error
 	// If there's a valid token, fetch the user balance
@@ -128,9 +131,9 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		for _, category := range cachedSubCategories {
 			button := tgbotapi.NewKeyboardButton(category.Question)
 			row = append(row, button)
+			keyboard = append(keyboard, row)
 		}
 		// Add the row of buttons to the keyboard
-		keyboard = append(keyboard, row)
 	}
 
 	// Add the "main menu" button at the bottom
@@ -144,6 +147,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	var message tgbotapi.MessageConfig
 
 	if selectedSubCategoryAnswer != "" {
+		server.SendMessageToServer(client, selectedSubCategoryAnswer, &selectedSubCategoryID)
 		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
 
 	} else {

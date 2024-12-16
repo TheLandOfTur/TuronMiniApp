@@ -262,7 +262,6 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	// Set headers
 	req.Header.Add("Language", language)
 
-	//req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	var emptyArray = []volumes.CategoryDataType{}
 
 	// Perform the request
