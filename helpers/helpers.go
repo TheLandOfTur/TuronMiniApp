@@ -68,8 +68,6 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 	if balanceData.SubscriptionStatus {
 		subscriptionStatus = "active"
 	}
-	fmt.Printf("3333333333333333333333")
-	fmt.Println(balanceData.SubscriptionPrice)
 
 	// Create the message with translated fields
 	formattedMessage := fmt.Sprintf(

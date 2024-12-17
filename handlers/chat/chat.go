@@ -44,6 +44,8 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 		token = user.Token
 	}
 	var err error
+	server.CreateChat(selectedCategoryID)
+
 	// If there's a valid token, fetch the user balance
 	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, -1)
 
@@ -52,6 +54,7 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 		bot.Send(msg)
 		return
 	}
+
 	// Create a new keyboard with category buttons
 	var keyboard [][]tgbotapi.KeyboardButton
 
@@ -88,14 +91,14 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	selectedFAQName := update.Message.Text
 
 	var selectedSubCategoryID int64
-	var selectedSubCategoryAnswer string
+	var selectedSubCategoryType string
 
 	// Find the ID of the category based on its name
 
 	for _, subCategory := range cachedSubCategories {
 		if strings.TrimSpace(subCategory.Question) == strings.TrimSpace(selectedFAQName) {
 			selectedSubCategoryID = subCategory.Id
-			selectedSubCategoryAnswer = subCategory.Answer
+			selectedSubCategoryType = subCategory.Type
 			break
 		}
 	}
@@ -122,6 +125,13 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		bot.Send(msg)
 		return
 	}
+
+	if selectedSubCategoryType == "PASS_TO_DEFAULT" {
+		server.PostSubCategory(selectedSubCategoryID)
+	} else {
+		server.SendMessageToServer(client, strings.TrimSpace(selectedFAQName), &selectedSubCategoryID)
+
+	}
 	// Create a new keyboard with category buttons
 	var keyboard [][]tgbotapi.KeyboardButton
 
@@ -146,12 +156,10 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	var message tgbotapi.MessageConfig
 
-	if selectedSubCategoryAnswer != "" {
-		server.SendMessageToServer(client, selectedSubCategoryAnswer, &selectedSubCategoryID)
-		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
-
-	} else {
+	if selectedSubCategoryType == "PASS_TO_DEFAULT" {
 		message = tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
+	} else {
+		message = tgbotapi.NewMessage(chatID, selectedSubCategoryType)
 
 	}
 

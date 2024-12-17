@@ -48,5 +48,14 @@ type CategoryDataType struct {
 type SubCategoryDataType struct {
 	Id       int64  `json:"id"`
 	Question string `json:"question"`
-	Answer   string `json:"answer,omitempty"`
+	Type     string `json:"type,omitempty"`
+	//Answer   string `json:"answer,omitempty"`
+}
+
+// Message defines the structure for incoming messages
+type MessageFromSocket struct {
+	Content              string `json:"content"`
+	ID                   int    `json:"id"`
+	IsAutoRespondMessage bool   `json:"isAutoRespondMessage"`
+	UpdatedAt            string `json:"updatedAt"`
 }

@@ -304,9 +304,9 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 
 	var apiPath string
 	if subCategoryId == -1 {
-		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d", categoryId)
+		apiPath = fmt.Sprintf("/api/faq/v1?categoryId=%d", categoryId)
 	} else {
-		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
+		apiPath = fmt.Sprintf("/api/faq/v1?categoryId=%d&parentFaqId=%d", categoryId, subCategoryId)
 
 	}
 
@@ -355,4 +355,94 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 
 	// Return the data
 	return subscriptionResponse.Data, nil
+}
+
+func CreateChat(faqCategoryId int64) {
+	url := getBaseFAQUrl("api/chat/v1")
+
+	// Create a struct for the request payload
+	type LoginRequest struct {
+		FaqCategoryId int64  `json:"faqCategoryId"`
+		PlatformType  string `json:"platformType"`
+	}
+
+	// Build the request payload
+	payload := LoginRequest{
+		FaqCategoryId: faqCategoryId,
+		PlatformType:  "TELEGRAM_BOT",
+	}
+
+	// Encode payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+	// Create an HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return
+	}
+	fmt.Println(url)
+
+	// Set the request headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Println("Response Body:", string(body))
+
+	// Check for non-200 response codes
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
+}
+func PostSubCategory(faqId int64) {
+	url := getBaseFAQUrl("api/chat/v1/setFaq")
+	// Create a struct for the request payload
+	type LoginRequest struct {
+		FaqId int64 `json:"faqId"`
+	}
+
+	// Build the request payload
+	payload := LoginRequest{
+		FaqId: faqId,
+	}
+
+	// Encode payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return
+	}
+
+	// Create an HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return
+	}
+
+	// Set the request headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	// Check for non-200 response codes
+	if resp.StatusCode != http.StatusOK {
+		return
+	}
+
 }

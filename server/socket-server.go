@@ -1,15 +1,21 @@
 package server
 
 import (
-	"fmt"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/zhouhui8915/go-socket.io-client"
 	"log"
 	"os"
 	"sync"
 )
 
-func StartSocketIOServer(userSessions *sync.Map, chatID int64) (*socketio_client.Client, error) {
+func sendOperatorMessage(bot *tgbotapi.BotAPI, chatID int64, msg volumes.MessageFromSocket) {
+	// Message content
+	reply := tgbotapi.NewMessage(chatID, msg.Content)
+	reply.ParseMode = "HTML"
+}
+
+func StartSocketIOServer(bot *tgbotapi.BotAPI, userSessions *sync.Map, chatID int64) (*socketio_client.Client, error) {
 	serverURL := os.Getenv("BASE_SOCKET_URL")
 	lang := "uz"
 	token := ""
@@ -37,19 +43,16 @@ func StartSocketIOServer(userSessions *sync.Map, chatID int64) (*socketio_client
 	if client != nil {
 		// Connection success handler
 		client.On("connect", func() {
-			log.Println("Successfully connected to the server")
 		}) // Connection success handler
+		// Connection error handler
+		client.On("onNewMessageReceived", func(msg volumes.MessageFromSocket) {
+			sendOperatorMessage(bot, chatID, msg)
+		})
 		client.On("onSuccessSentMessage", func() {
 			log.Println("Successfully connected to the onSuccessSentMessage")
 		})
-		// Connection error handler
-		client.On("connect_error", func(err interface{}) {
-			log.Printf("Connection error: %v", err)
-		})
+
 	}
-	fmt.Println("token\n")
-	fmt.Println(client)
-	fmt.Println("token\n")
 
 	// Keep the client running in the background
 	go func() {
