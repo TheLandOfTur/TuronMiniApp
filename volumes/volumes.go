@@ -1,6 +1,6 @@
 package volumes
 
-import socketio_client "github.com/zhouhui8915/go-socket.io-client"
+import sio "github.com/karagenc/socket.io-go"
 
 const (
 	SELECT_LANGUAGE  = "SELECT_LANGUAGE"
@@ -24,7 +24,7 @@ type UserSession struct {
 	Token                 string
 	SelectedCategoryId    int64
 	SelectedSubCategoryId int64
-	Client                *socketio_client.Client
+	Client                *sio.ClientSocket
 }
 
 type Message struct {

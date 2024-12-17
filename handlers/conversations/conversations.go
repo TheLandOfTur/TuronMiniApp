@@ -264,7 +264,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	// Send the formatted message
 	msg := tgbotapi.NewMessage(chatID, formattedMessage)
 	deleteUserMessage(bot, chatID, update.Message.MessageID)
-	client, err := server.StartSocketIOServer(bot, userSessions, chatID)
+	client, err := server.ConnectSocketIO(bot, userSessions, chatID)
 	if err != nil {
 		log.Fatalf("Error starting Socket server: %v", err)
 	}

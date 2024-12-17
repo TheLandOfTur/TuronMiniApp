@@ -2,7 +2,6 @@ package chat
 
 import (
 	"fmt"
-	socketio_client "github.com/zhouhui8915/go-socket.io-client"
 	"strings"
 	"sync"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	sio "github.com/karagenc/socket.io-go"
 )
 
 var cachedCategories []volumes.CategoryDataType       // Assuming the type returned by server.GetCategories is server.Category
@@ -105,7 +105,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	lang := "uz"
 	token := ""
-	var client *socketio_client.Client
+	var client *sio.ClientSocket
 	var selectedCategoryID int64
 
 	if session, ok := userSessions.Load(chatID); ok {
@@ -129,7 +129,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	if selectedSubCategoryType == "PASS_TO_DEFAULT" {
 		server.PostSubCategory(selectedSubCategoryID)
 	} else {
-		server.SendMessageToServer(client, strings.TrimSpace(selectedFAQName), &selectedSubCategoryID)
+		server.SendMessageToSocketIO(client, strings.TrimSpace(selectedFAQName), &selectedSubCategoryID)
 
 	}
 	// Create a new keyboard with category buttons
