@@ -10,6 +10,7 @@ const (
 	SUBMIT_PHONE     = "SUBMIT_PHONE"
 	SELECT_CATEGORY  = "SELECT_CATEGORY"
 	SELECT_FAQ       = "SELECT_FAQ"
+	LOG_OUT          = "LOG_OUT"
 )
 
 type UserSession struct {

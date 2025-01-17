@@ -53,7 +53,7 @@ func HandleSubmissionConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update,
 			),
 		)
 
-		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPhone"))
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseShareYourPhoneNumber"))
 		msg.ReplyMarkup = keyboard
 		bot.Send(msg)
 

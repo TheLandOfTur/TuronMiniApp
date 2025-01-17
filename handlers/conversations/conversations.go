@@ -19,7 +19,6 @@ import (
 var lastMessageIDs sync.Map // To track the last message sent by the bot
 
 func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
-
 	// Clear the user session
 	userSessions.Delete(chatID)
 	userSessions.Clear()
@@ -36,6 +35,16 @@ func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 		user.State = volumes.LOGIN
 	}
 	bot.Send(reply)
+}
+func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
+
+	switch update.Message.Text {
+	case translations.GetTranslation(userSessions, chatID, "yes"):
+		StartEvent(bot, chatID, userSessions)
+	case translations.GetTranslation(userSessions, chatID, "no"):
+		events.ShowMainMenu(bot, chatID, userSessions)
+	}
 }
 
 func onchangeLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
@@ -72,7 +81,7 @@ func handleLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 		user.Language = lang
 		user.State = volumes.SUBMIT_PHONE
 	}
-	contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhonenumber")))
+	contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhoneNumber")))
 	contactButton.RequestContact = true // Enable the contact request
 
 	keyboard := tgbotapi.NewReplyKeyboard(
@@ -86,7 +95,7 @@ func handleLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	keyboard.OneTimeKeyboard = true // Show keyboard only once
 	keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
 
-	msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPhone"))
+	msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseShareYourPhoneNumber"))
 	msg.ReplyMarkup = keyboard
 
 	// langKeyboard := tgbotapi.NewReplyKeyboard(
@@ -114,13 +123,15 @@ func handlePhoneNumber(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessio
 	if update.Message.Contact != nil {
 		phoneNumber = update.Message.Contact.PhoneNumber // Shared via contact button
 	} else {
-
-		phoneNumber = update.Message.Text // User manually enters the phone number
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "sharePhoneNumber"))
+		bot.Send(msg)
+		return
+		// 		phoneNumber = update.Message.Text // User manually enters the phone number
 	}
 
 	// Validate phone number format
 	if !isValidPhoneNumber(phoneNumber) {
-		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "invalidPhoneNumber"))
+		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "sharePhoneNumber"))
 		bot.Send(msg)
 		return
 	}
@@ -263,6 +274,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 
 	// Send the formatted message
 	msg := tgbotapi.NewMessage(chatID, formattedMessage)
+	msg.ParseMode = "HTML"
 	deleteUserMessage(bot, chatID, update.Message.MessageID)
 
 	bot.Send(msg)
@@ -285,6 +297,8 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		handlePassword(bot, update, userSessions)
 	case volumes.SUBMIT_PHONE:
 		handlePhoneNumber(bot, update, userSessions)
+	case volumes.LOG_OUT:
+		handleLogOut(bot, update, userSessions)
 	case volumes.CHANGE_LANGUAGE:
 		onchangeLanguage(bot, update, userSessions)
 	case volumes.SELECT_CATEGORY, volumes.SELECT_FAQ:

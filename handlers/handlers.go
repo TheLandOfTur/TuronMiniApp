@@ -22,7 +22,8 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		return
 	}
 	if msg.Text == fmt.Sprintf("🚪 %s", translations.GetTranslation(&userSessions, chatID, "Exit")) {
-		conversations.StartEvent(bot, chatID, &userSessions)
+		//conversations.StartEvent(bot, chatID, &userSessions)
+		events.QuestionaryLogOut(bot, chatID, &userSessions)
 		return
 	}
 	if msg.Text == translations.GetTranslation(&userSessions, chatID, "cancel") {

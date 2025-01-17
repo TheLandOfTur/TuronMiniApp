@@ -332,8 +332,6 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 	if err != nil {
 		return emptyArray, fmt.Errorf("request failed: %w", err)
 	}
-	fmt.Println(resp)
-
 	defer resp.Body.Close()
 
 	// Check for non-200 status codes

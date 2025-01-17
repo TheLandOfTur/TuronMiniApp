@@ -21,20 +21,19 @@ func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	}
 	mainMenuKeyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("📊 %s", translations.GetTranslation(userSessions, chatID, "Tariffs"))),
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
-		),
-		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("💰 %s", translations.GetTranslation(userSessions, chatID, "Balance"))),
-			// tgbotapi.NewKeyboardButton(fmt.Sprintf("📝 %s", translations.GetTranslation(userSessions, chatID, "Application"))),
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("🌐 %s", translations.GetTranslation(userSessions, chatID, "Language"))),
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("📊 %s", translations.GetTranslation(userSessions, chatID, "Tariffs"))),
+			// tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
 		),
 		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("🌐 %s", translations.GetTranslation(userSessions, chatID, "Language"))),
+			// tgbotapi.NewKeyboardButton(fmt.Sprintf("📝 %s", translations.GetTranslation(userSessions, chatID, "Application"))),
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("🚪 %s", translations.GetTranslation(userSessions, chatID, "Exit"))),
 		),
 	)
 	// Create and send the message with the menu
 	reply := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "PleaseSelectOption"))
+
 	reply.ReplyMarkup = mainMenuKeyboard
 	_, err := bot.Send(reply)
 	if err != nil {
@@ -51,7 +50,7 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 		// If there's no token, change the user state to LOGIN
 		if user.Phone == "" {
 			user.State = volumes.SUBMIT_PHONE
-			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhonenumber")))
+			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhoneNumber")))
 			contactButton.RequestContact = true // Enable the contact request
 
 			keyboard := tgbotapi.NewReplyKeyboard(
@@ -65,7 +64,7 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 			keyboard.OneTimeKeyboard = true // Show keyboard only once
 			keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
 
-			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPhone"))
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseShareYourPhoneNumber"))
 			msg.ReplyMarkup = keyboard
 			bot.Send(msg)
 			return
@@ -106,6 +105,7 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 
 		// Send the formatted message
 		msg := tgbotapi.NewMessage(chatID, formattedMessage)
+		msg.ParseMode = "HTML"
 		bot.Send(msg)
 
 		// Change the user state to END_CONVERSATION after balance is shown
@@ -126,6 +126,23 @@ func ShowLanguages(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
 		user.State = volumes.CHANGE_LANGUAGE
+	}
+	bot.Send(reply)
+}
+
+func QuestionaryLogOut(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+	// Language selection
+	langKeyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "yes")),
+			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "no")),
+		),
+	)
+	reply := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "doYouWantLogout"))
+	reply.ReplyMarkup = langKeyboard
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		user.State = volumes.LOG_OUT
 	}
 	bot.Send(reply)
 }
