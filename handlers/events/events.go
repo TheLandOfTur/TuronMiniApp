@@ -196,7 +196,7 @@ func ShowTariffList(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			messageBuilder.WriteString(fmt.Sprintf("     %s - %s : %s %s \n",
 				convertSecondsToHHMM(speed.FromTime),
 				convertSecondsToHHMM(speed.ToTime),
-				fmt.Sprintf("%d", speed.Speed/1000),
+				fmt.Sprintf("%d", speed.Speed/1024),
 				translations.GetTranslation(userSessions, chatID, "mbs"),
 			))
 		}
