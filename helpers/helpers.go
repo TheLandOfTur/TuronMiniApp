@@ -33,17 +33,23 @@ func cutFirst16Chars(dateStr string) string {
 func AddSpacesEveryThreeDigits(number int) string {
 	numStr := fmt.Sprintf("%d", number) // Convert the number to a string
 	var result strings.Builder
-	if number < 999 {
+	if -999 < number && number < 999 {
 		return numStr
 	}
 
 	// Iterate over the string in reverse
+	if number < 0 {
+		numStr = strings.ReplaceAll(numStr, "-", "")
+	}
 	length := len(numStr)
 	for i, ch := range numStr {
 		if (length-i)%3 == 0 && i != 0 { // Add a space every 3 digits, but not at the start
 			result.WriteRune(' ')
 		}
 		result.WriteRune(ch)
+	}
+	if number < 0 {
+		return fmt.Sprintf("- %s", result.String())
 	}
 
 	return result.String()
