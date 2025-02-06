@@ -202,13 +202,11 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			bot.Send(msg)
 			return
 		}
-		if len(cachedCategories) == 0 {
-			var err error
-			cachedCategories, err = server.GetCategories(user.Language)
-			if err != nil {
-				bot.Send(tgbotapi.NewMessage(chatID, "Error fetching data from the server."))
-				return
-			}
+		var err error
+		cachedCategories, err = server.GetCategories(user.Language)
+		if err != nil {
+			bot.Send(tgbotapi.NewMessage(chatID, "Error fetching data from the server."))
+			return
 		}
 
 		// Create a new keyboard with category buttons
