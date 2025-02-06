@@ -23,11 +23,13 @@ func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("💰 %s", translations.GetTranslation(userSessions, chatID, "Balance"))),
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("📊 %s", translations.GetTranslation(userSessions, chatID, "Tariffs"))),
-			// tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("🌐 %s", translations.GetTranslation(userSessions, chatID, "Language"))),
-			// tgbotapi.NewKeyboardButton(fmt.Sprintf("📝 %s", translations.GetTranslation(userSessions, chatID, "Application"))),
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("🏷️ %s", translations.GetTranslation(userSessions, chatID, "promoCode"))),
+		),
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("🚪 %s", translations.GetTranslation(userSessions, chatID, "Exit"))),
 		),
 	)
@@ -110,6 +112,67 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 
 		// Change the user state to END_CONVERSATION after balance is shown
 		user.State = volumes.END_CONVERSATION
+	}
+}
+
+func RedirectToPromoCode(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+	// Check if the user session exists
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+
+		// If there's no token, change the user state to LOGIN
+		if user.Phone == "" {
+			user.State = volumes.SUBMIT_PHONE
+			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhoneNumber")))
+			contactButton.RequestContact = true // Enable the contact request
+
+			keyboard := tgbotapi.NewReplyKeyboard(
+				tgbotapi.NewKeyboardButtonRow(
+					contactButton,
+				),
+				tgbotapi.NewKeyboardButtonRow(
+					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
+				),
+			)
+			keyboard.OneTimeKeyboard = true // Show keyboard only once
+			keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
+
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseShareYourPhoneNumber"))
+			msg.ReplyMarkup = keyboard
+			bot.Send(msg)
+			return
+		}
+
+		// If there's no token, change the user state to LOGIN
+		if user.Token == "" {
+			user.State = volumes.LOGIN
+			langKeyboard := tgbotapi.NewReplyKeyboard(
+				tgbotapi.NewKeyboardButtonRow(
+					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "cancel")),
+					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
+				),
+			)
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "login"))
+			msg.ReplyMarkup = langKeyboard
+			bot.Send(msg)
+			return
+		}
+
+		reply := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterCode"))
+
+		// Send the formatted message
+		//reply := tgbotapi.NewMessage(chatID, formattedMessage)
+		keyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
+			),
+		)
+		reply.ParseMode = "HTML"
+		reply.ReplyMarkup = keyboard
+		bot.Send(reply)
+
+		// Change the user state to END_CONVERSATION after balance is shown
+		user.State = volumes.ACTIVATE_PROMOCODE
 	}
 }
 

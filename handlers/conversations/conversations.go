@@ -38,7 +38,6 @@ func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 }
 func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
-
 	switch update.Message.Text {
 	case translations.GetTranslation(userSessions, chatID, "yes"):
 		StartEvent(bot, chatID, userSessions)
@@ -50,7 +49,6 @@ func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *s
 func onchangeLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 	lang := "uz"
-
 	switch update.Message.Text {
 	case "\U0001F1F7\U0001F1FA Русский":
 		lang = "ru"
@@ -64,6 +62,29 @@ func onchangeLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSession
 	}
 
 	events.ShowMainMenu(bot, chatID, userSessions)
+}
+
+func checkActivePromoCode(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		promoResponse, err := server.ActivateToken(user.Token, update.Message.Text)
+
+		formattedMessage, err := helpers.GetFormattedPromoCodeMessage(promoResponse, chatID, userSessions)
+		if err != nil {
+			//Handle error formatting subscription data
+			msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Error formatting subscription data: %v", err))
+			bot.Send(msg)
+			return
+		}
+		msg := tgbotapi.NewMessage(chatID, formattedMessage)
+		msg.ParseMode = "HTML"
+		bot.Send(msg)
+		// Change the user state to END_CONVERSATION after balance is shown
+		user.State = volumes.END_CONVERSATION
+		events.ShowMainMenu(bot, chatID, userSessions)
+
+	}
 }
 
 func handleLanguage(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
@@ -254,6 +275,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 		}
 		return
 	}
+
 	// Get the formatted subscription message
 	formattedMessage, err := helpers.GetSubscriptionMessage(balanceData, chatID, userSessions)
 	if err != nil {
@@ -301,6 +323,8 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		handleLogOut(bot, update, userSessions)
 	case volumes.CHANGE_LANGUAGE:
 		onchangeLanguage(bot, update, userSessions)
+	case volumes.ACTIVATE_PROMOCODE:
+		checkActivePromoCode(bot, update, userSessions)
 	case volumes.SELECT_CATEGORY, volumes.SELECT_FAQ:
 		chat.HandleChatConversation(bot, update, userSessions, user)
 	}

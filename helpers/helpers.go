@@ -16,18 +16,14 @@ import (
 )
 
 func cutFirst16Chars(dateStr string) string {
-	// Split the string by ":"
-	parts := strings.Split(dateStr, ":")
-	date := strings.Split(parts[0], " ")[0]
-	hour := strings.Split(parts[0], " ")[1]
+	parsedTime, err := time.Parse("2006-01-02", dateStr)
 
-	// If there are at least two parts, join the first two
-	if len(parts) >= 2 {
-		return ConvertDateFormat(date) + " " + hour + ":" + parts[1]
+	if err != nil {
+		return ""
 	}
 
-	// If there are less than two parts, return the string as is
-	return dateStr
+	// Format the date in "DD.MM.YYYY 00:00"
+	return parsedTime.Format("02.01.2006 00:00")
 }
 
 func AddSpacesEveryThreeDigits(number int) string {
@@ -84,15 +80,15 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 			lang = user.Language
 		}
 		if lang == "uz" {
-			return ConvertDateFormat(balanceData.StartPeriodDate) + " " + translate("from") + " " + ConvertDateFormat(balanceData.EndPeriodDate) + " " + translate("to")
+			return ConvertDateFormat(balanceData.DateStart) + " " + translate("from") + " " + ConvertDateFormat(balanceData.EndDate) + " " + translate("to")
 
 		} else {
-			return translate("from") + " " + ConvertDateFormat(balanceData.StartPeriodDate) + " " + translate("to") + " " + ConvertDateFormat(balanceData.EndPeriodDate)
+			return translate("from") + " " + ConvertDateFormat(balanceData.DateStart) + " " + translate("to") + " " + ConvertDateFormat(balanceData.EndDate)
 		}
 	}
 	subscriptionStatus := "inactive" // default to inactive
 	subscriptionIcon := "\U0001F534"
-	if balanceData.SubscriptionStatus {
+	if balanceData.Balance > 0 {
 		subscriptionStatus = "active"
 		subscriptionIcon = "\U0001F7E2"
 	}
@@ -107,14 +103,18 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 			"<b>%s</b>: %s%s",
 		translate("yourBalance"), // Translated "Your current balance"
 		AddSpacesEveryThreeDigits(balanceData.Balance),
-		translate("uzs"),        // uzs
+		translate("uzs"), // uzs
+
 		translate("tariffName"), // Translated "Tariff Name"
-		balanceData.TariffName,
+		balanceData.Tariff.Name,
+
 		translate("subscriptionPrice"), // Translated "Subscription Price"
-		AddSpacesEveryThreeDigits(int(balanceData.SubscriptionPrice)),
+		AddSpacesEveryThreeDigits(int(balanceData.Tariff.Price)),
 		translate("uzs"),
+
 		translate("nextSubscriptionDate"), // Translated "Next Subscription Date"
-		cutFirst16Chars(balanceData.NextSubscriptionDate),
+		cutFirst16Chars(balanceData.EndDate),
+
 		translate("subscriptionPeriod"), // Translated "Subscription Period"
 		translateDate(),
 		translate("subscriptionActive"),                 // Translated "Subscription Active"
@@ -161,4 +161,38 @@ func GetLastMessageID(bot *tgbotapi.BotAPI, chatID int64) (int, error) {
 	}
 
 	return lastMessageID, nil
+}
+
+// GetFormattedPromoCodeMessage generates a user-friendly message based on the promo code response
+func GetFormattedPromoCodeMessage(promoResponse server.PromoCodeResponse, chatID int64, userSessions *sync.Map) (string, error) {
+	// Get translations based on the user language
+	translate := func(key string) string {
+		return translations.GetTranslation(userSessions, chatID, key)
+	}
+	log.Printf("Starting server on port %s", promoResponse)
+
+	// Default icon and status based on the response status
+	statusIcon := "\U0001F534"                      // Default to red (failure)
+	statusMessage := translate("promoCodeNotFound") // Default to "Promo code inactive"
+
+	if promoResponse.Status == "OK" && promoResponse.Success {
+		statusIcon = "\U0001F7E2"                    // Green circle for success
+		statusMessage = translate("promoCodeActive") // "Promo code active"
+	} else if promoResponse.Status == "ALREADY_EXISTS" {
+		statusIcon = "\U0001F7E1"                              // Yellow circle for warning
+		statusMessage = translate("promoCodeAlreadyActivated") // "Promo code already activated"
+	} else if promoResponse.Status == "PERMISSION_DENIED" {
+		statusIcon = "\U0001F6AB"                              // Prohibited symbol for access denied
+		statusMessage = translate("promoCodePermissionDenied") // "Permission denied when entering promo code"
+	}
+
+	// Generate the formatted message
+	formattedMessage := fmt.Sprintf(
+		"<b>%s</b>: %s %s\n",
+		translate("status"), // Translated "Promo Code Status"
+		statusMessage,
+		statusIcon,
+	)
+
+	return formattedMessage, nil
 }

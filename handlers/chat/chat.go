@@ -44,6 +44,7 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	}
 	var err error
 	// If there's a valid token, fetch the user balance
+
 	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, -1)
 
 	if err != nil {
@@ -51,6 +52,7 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 		bot.Send(msg)
 		return
 	}
+
 	// Create a new keyboard with category buttons
 	var keyboard [][]tgbotapi.KeyboardButton
 
@@ -112,13 +114,16 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	}
 	var err error
 	// If there's a valid token, fetch the user balance
+
 	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, selectedSubCategoryID)
 
 	if err != nil {
+
 		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
 		bot.Send(msg)
 		return
 	}
+
 	// Create a new keyboard with category buttons
 	var keyboard [][]tgbotapi.KeyboardButton
 
