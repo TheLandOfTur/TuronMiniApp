@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/logger"
 	"io"
 	"log"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	"github.com/joho/godotenv"
 )
+
+var loggers = logger.GetLogger()
 
 type UserData struct {
 	Name  string `json:"name"`
@@ -87,7 +90,7 @@ func FetchTariffsFromServer() ([]TariffObject, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
-
+	loggers.Info("response from tariffs", url, " ", resp)
 	var objects ResponseTpe
 
 	err = json.NewDecoder(resp.Body).Decode(&objects)
@@ -176,13 +179,16 @@ func GetUserData(token string, language string) (BalanceData, error) {
 	req.Header.Add("Language", language)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	loggers.Info("response from get user data", req)
 
 	// Perform the request
 	resp, err := client.Do(req)
+
 	if err != nil {
 		return BalanceData{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
+	loggers.Info("response from get user data", resp)
 
 	// Check for non-200 status codes
 	if resp.StatusCode != http.StatusOK {
@@ -221,6 +227,7 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 	jsonPayload, err := json.Marshal(payload)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+
 	if err != nil {
 		return PromoCodeResponse{}, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -228,10 +235,12 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 	// Set headers
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	loggers.Info("response from activate function", url, " ", req)
 
 	// Perform the request
 	resp, err := client.Do(req)
 	var promoCodeResponse PromoCodeResponse
+	loggers.Info("response from activate function", resp)
 
 	if err != nil {
 		promoCodeResponse.Status = "UNKNOWN"
@@ -305,6 +314,8 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	// Create an HTTP client and request
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	loggers.Info("response from login to backend", url, " ", req)
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -315,6 +326,8 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 
 	// Perform the request
 	resp, err := client.Do(req)
+	loggers.Info("response from login to backend", err, " ", resp)
+
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
@@ -369,12 +382,15 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	var emptyArray = []volumes.CategoryDataType{}
 
 	// Perform the request
+	loggers.Info("response from get categories", url, " ", req)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return emptyArray, fmt.Errorf("request failed: %w", err)
 	}
 
 	defer resp.Body.Close()
+	loggers.Info("response from get categories", err, " ", resp)
 
 	// Check for non-200 status codes
 	if resp.StatusCode != http.StatusOK {
@@ -427,9 +443,12 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 	req.Header.Add("Language", lang)
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
 	var emptyArray = []volumes.SubCategoryDataType{}
+	loggers.Info("response from get subcategories", url, " ", req)
 
 	// Perform the request
 	resp, err := client.Do(req)
+	loggers.Info("response from subcategories", err, " ", resp)
+
 	if err != nil {
 		return emptyArray, fmt.Errorf("request failed: %w", err)
 	}
