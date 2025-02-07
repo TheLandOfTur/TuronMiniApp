@@ -57,13 +57,10 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	var keyboard [][]tgbotapi.KeyboardButton
 
 	// Map cachedSubCategories to keyboard buttons
-	var row []tgbotapi.KeyboardButton
 	for _, subCategory := range cachedSubCategories {
 		button := tgbotapi.NewKeyboardButton(subCategory.Question)
-		row = append(row, button)
+		keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
 	}
-	// Add the row of buttons to the keyboard
-	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
@@ -128,14 +125,11 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	var keyboard [][]tgbotapi.KeyboardButton
 
 	// Map cachedSubCategories to keyboard buttons
-	var row []tgbotapi.KeyboardButton
 	if len(cachedSubCategories) > 0 {
 		for _, category := range cachedSubCategories {
 			button := tgbotapi.NewKeyboardButton(category.Question)
-			row = append(row, button)
+			keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
 		}
-		// Add the row of buttons to the keyboard
-		keyboard = append(keyboard, row)
 	}
 
 	// Add the "main menu" button at the bottom
@@ -213,14 +207,11 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 		var keyboard [][]tgbotapi.KeyboardButton
 
 		// Map cachedCategories to keyboard buttons
-		var row []tgbotapi.KeyboardButton
 		for _, category := range cachedCategories {
 			button := tgbotapi.NewKeyboardButton(category.Name)
-			row = append(row, button)
-		}
-		// Add the row of buttons to the keyboard
-		keyboard = append(keyboard, row)
+			keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
 
+		}
 		// Add the "main menu" button at the bottom
 		mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
 		keyboard = append(keyboard, []tgbotapi.KeyboardButton{mainMenuButton})

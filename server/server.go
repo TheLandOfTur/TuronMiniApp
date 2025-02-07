@@ -275,7 +275,7 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 
 // LoginToBackend logs in to the backend with phoneNumber, login, and password
 func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (string, error) {
-	url := getBaseUrl("/api/v1/users/sign-in-outside")
+	url := getBaseUrl("/api/v1/abonents/sign-in")
 
 	// Create a struct for the request payload
 	type LoginRequest struct {
