@@ -2,13 +2,14 @@ package helpers
 
 import (
 	"fmt"
-	"github.com/OzodbekX/TuronMiniApp/volumes"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/OzodbekX/TuronMiniApp/volumes"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
@@ -86,11 +87,12 @@ func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSe
 			return translate("from") + " " + ConvertDateFormat(balanceData.DateStart) + " " + translate("to") + " " + ConvertDateFormat(balanceData.EndDate)
 		}
 	}
-	subscriptionStatus := "inactive" // default to inactive
-	subscriptionIcon := "\U0001F534"
-	if balanceData.Balance > 0 {
-		subscriptionStatus = "active"
-		subscriptionIcon = "\U0001F7E2"
+	subscriptionStatus := "active" // default to active
+	subscriptionIcon := "\U0001F7E2"
+
+	if balanceData.Balance < 0 {
+		subscriptionStatus = "inactive"
+		subscriptionIcon = "\U0001F534"
 	}
 
 	// Create the message with translated fields

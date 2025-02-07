@@ -56,6 +56,8 @@ var (
 			"promoCodePermissionDenied":  "Доступ к промокоду запрещен",
 			"promoCodeNotFound":          "Промокод не найден",
 			"status":                     "Статус",
+			"otherQuestion":              "Связаться с оператором",
+			"operatorMessage":            "<a href='https://t.me/turonsupport'>Оператор</a>, свяжитесь и получите ответы на свои вопросы.",
 		},
 		"uz": {
 			"welcome":                    "Xush kelibsiz! Iltimos, tilni tanlang.",
@@ -105,6 +107,8 @@ var (
 			"promoCodePermissionDenied":  "Promo kodga ruxsat berilmagan",
 			"promoCodeNotFound":          "Promo kod topilmadi",
 			"status":                     "Status",
+			"otherQuestion":              "Operator bilan bog'lanish",
+			"operatorMessage":            "<a href='https://t.me/turonsupport'>Operator</a> bilan bog'laning va savollaringizga javob toping.",
 		},
 	}
 )
