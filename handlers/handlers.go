@@ -2,8 +2,9 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
 	"sync"
+
+	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
 
 	"github.com/OzodbekX/TuronMiniApp/handlers/conversations"
 	"github.com/OzodbekX/TuronMiniApp/handlers/events"
@@ -58,7 +59,6 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		//messageText := "Telegram: @turonsupport"
 		//events.SendMessage(bot, chatID, messageText)
 		chat.ShowCategories(bot, chatID, &userSessions)
-
 		return
 	}
 
