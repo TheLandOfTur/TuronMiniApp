@@ -166,3 +166,9 @@ type LoginResponse struct {
 	Success bool          `json:"success"`
 	Data    TokenResponse `json:"data"`
 }
+
+type SubscriptionResponse struct {
+	Status  string      `json:"status"`
+	Success bool        `json:"success"`
+	Data    BalanceData `json:"data"`
+}

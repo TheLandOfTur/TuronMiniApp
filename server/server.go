@@ -63,12 +63,6 @@ func FetchTariffsFromServer() ([]volumes.TariffObject, error) {
 	return objects.Data, nil
 }
 
-type SubscriptionResponse struct {
-	Status  string              `json:"status"`
-	Success bool                `json:"success"`
-	Data    volumes.BalanceData `json:"data"`
-}
-
 // GetUserData fetches user data from the server
 func GetUserData(token string, language string) (volumes.BalanceData, error) {
 	url := getBaseUrl("/api/v1/abonents/info")
@@ -102,7 +96,7 @@ func GetUserData(token string, language string) (volumes.BalanceData, error) {
 	}
 
 	// Decode the response
-	var subscriptionResponse SubscriptionResponse
+	var subscriptionResponse volumes.SubscriptionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&subscriptionResponse); err != nil {
 		return volumes.BalanceData{}, fmt.Errorf("failed to decode response: %w", err)
 	}
