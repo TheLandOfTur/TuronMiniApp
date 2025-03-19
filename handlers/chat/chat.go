@@ -2,7 +2,6 @@ package chat
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/server"
@@ -23,13 +22,15 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	found := false
 	// Find the ID of the category based on its name
 	for _, category := range cachedCategories {
-		if strings.TrimSpace(category.Name) == strings.TrimSpace(selectedCategoryName) {
+		if category.Name == selectedCategoryName {
 			selectedCategoryID = category.Id
 			found = true
 			break
 		}
 	}
 	if !found {
+		// If no matching category found, send an error message to the user
+		bot.Send(tgbotapi.NewMessage(chatID, "Invalid category selected. Please try again."))
 		return
 	}
 
@@ -57,10 +58,13 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	var keyboard [][]tgbotapi.KeyboardButton
 
 	// Map cachedSubCategories to keyboard buttons
-	for _, subCategory := range cachedSubCategories {
-		button := tgbotapi.NewKeyboardButton(subCategory.Question)
-		keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
+	var row []tgbotapi.KeyboardButton
+	for _, category := range cachedSubCategories {
+		button := tgbotapi.NewKeyboardButton(category.Question)
+		row = append(row, button)
 	}
+	// Add the row of buttons to the keyboard
+	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
@@ -68,7 +72,6 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
-	replyMarkup.ResizeKeyboard = true
 
 	// Send the message with the keyboard
 	message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
@@ -91,7 +94,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	// Find the ID of the category based on its name
 
 	for _, category := range cachedSubCategories {
-		if strings.TrimSpace(category.Question) == strings.TrimSpace(selectedFAQName) {
+		if category.Question == selectedFAQName {
 			selectedSubCategoryID = category.Id
 			selectedSubCategoryAnswer = category.Answer
 			break
@@ -125,12 +128,13 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	var keyboard [][]tgbotapi.KeyboardButton
 
 	// Map cachedSubCategories to keyboard buttons
-	if len(cachedSubCategories) > 0 {
-		for _, category := range cachedSubCategories {
-			button := tgbotapi.NewKeyboardButton(category.Question)
-			keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
-		}
+	var row []tgbotapi.KeyboardButton
+	for _, category := range cachedSubCategories {
+		button := tgbotapi.NewKeyboardButton(category.Question)
+		row = append(row, button)
 	}
+	// Add the row of buttons to the keyboard
+	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
@@ -138,11 +142,9 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
-	replyMarkup.ResizeKeyboard = true
-
 	var message tgbotapi.MessageConfig
 
-	if selectedSubCategoryAnswer != "" {
+	if len(selectedSubCategoryAnswer) > 0 {
 		message = tgbotapi.NewMessage(chatID, selectedSubCategoryAnswer)
 
 	} else {
@@ -163,7 +165,7 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 		// If there's no token, change the user state to LOGIN
 		if user.Phone == "" {
 			user.State = volumes.SUBMIT_PHONE
-			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhoneNumber")))
+			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhonenumber")))
 			contactButton.RequestContact = true // Enable the contact request
 			keyboard := tgbotapi.NewReplyKeyboard(
 				tgbotapi.NewKeyboardButtonRow(
@@ -176,7 +178,7 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			keyboard.OneTimeKeyboard = true // Show keyboard only once
 			keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
 
-			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseShareYourPhoneNumber"))
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterPhone"))
 			msg.ReplyMarkup = keyboard
 			bot.Send(msg)
 			return
@@ -196,29 +198,33 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			bot.Send(msg)
 			return
 		}
-		var err error
-		cachedCategories, err = server.GetCategories(user.Language)
-		if err != nil {
-			bot.Send(tgbotapi.NewMessage(chatID, "Error fetching data from the server."))
-			return
+		if len(cachedCategories) == 0 {
+			var err error
+			cachedCategories, err = server.GetCategories(user.Language)
+			if err != nil {
+				bot.Send(tgbotapi.NewMessage(chatID, "Error fetching data from the server."))
+				return
+			}
 		}
 
 		// Create a new keyboard with category buttons
 		var keyboard [][]tgbotapi.KeyboardButton
 
 		// Map cachedCategories to keyboard buttons
+		var row []tgbotapi.KeyboardButton
 		for _, category := range cachedCategories {
 			button := tgbotapi.NewKeyboardButton(category.Name)
-			keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
-
+			row = append(row, button)
 		}
+		// Add the row of buttons to the keyboard
+		keyboard = append(keyboard, row)
+
 		// Add the "main menu" button at the bottom
 		mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
 		keyboard = append(keyboard, []tgbotapi.KeyboardButton{mainMenuButton})
 
 		// Create the keyboard markup
 		replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
-		replyMarkup.ResizeKeyboard = true
 
 		// Send the message with the keyboard
 		message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectCategory"))
