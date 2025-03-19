@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"io"
 	"log"
 	"net/http"
@@ -16,11 +17,6 @@ import (
 )
 
 var loggers = logger.GetLogger()
-
-type UserData struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
 
 func getBaseUrl(apiPath string) string {
 	err := godotenv.Load()
@@ -35,45 +31,9 @@ func getBaseUrl(apiPath string) string {
 	url := fmt.Sprintf("%s%s", baseURL, apiPath)
 	return url
 }
-func getBaseFAQUrl(apiPath string) string {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-
-	BASE_FAQ_URL := os.Getenv("BASE_FAQ_URL")
-	if BASE_FAQ_URL == "" {
-		log.Fatalf("BASE_FAQ_URL is not set in .env file")
-	}
-	url := fmt.Sprintf("%s%s", BASE_FAQ_URL, apiPath)
-	return url
-}
-
-type TariffSpeedObject struct {
-	FromTime int `json:"fromTime"`
-	Speed    int `json:"speed"`
-	ToTime   int `json:"toTime"`
-}
-type TariffObject struct {
-	ID          string              `json:"id"`
-	Name        string              `json:"name"`
-	Price       int                 `json:"price"`
-	SpeedByTime []TariffSpeedObject `json:"speedByTime"`
-}
-type MetaObject struct {
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
-	Total  int `json:"total"`
-}
-type ResponseTpe struct {
-	Data    []TariffObject `json:"data"`
-	Meta    MetaObject     `json:"meta"`
-	Status  string         `json:"status"`
-	Success bool           `json:"success"`
-}
 
 // Fetch objects from a server
-func FetchTariffsFromServer() ([]TariffObject, error) {
+func FetchTariffsFromServer() ([]volumes.TariffObject, error) {
 	url := getBaseUrl("/api/v1/internet-tariffs/public?offset=0&limit=100")
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -92,7 +52,7 @@ func FetchTariffsFromServer() ([]TariffObject, error) {
 		return nil, fmt.Errorf("server returned status %d", resp.StatusCode)
 	}
 	loggers.Info("response from tariffs", url, " ", resp)
-	var objects ResponseTpe
+	var objects volumes.ResponseTpe
 
 	err = json.NewDecoder(resp.Body).Decode(&objects)
 
@@ -103,77 +63,21 @@ func FetchTariffsFromServer() ([]TariffObject, error) {
 	return objects.Data, nil
 }
 
-// SpeedByTime represents the time-based speed limits
-type SpeedByTime struct {
-	FromTime int `json:"fromTime"`
-	Speed    int `json:"speed"`
-	ToTime   int `json:"toTime"`
-}
-
-// BillingTariffPlan represents the main plan structure
-type BillingTariffPlan struct {
-	ApartmentTypes   *[]string      `json:"apartmentTypes"`
-	BillingTariffID  int            `json:"billingTariffId"`
-	BillingType      string         `json:"billingType"`
-	CostPerByte      int            `json:"costPerByte"`
-	CostPerMb        int            `json:"costPerMb"`
-	CostPeriod       int            `json:"costPeriod"`
-	CreatedAt        string         `json:"createdAt"` // Consider time.Time if dealing with timestamps
-	Description      *string        `json:"description"`
-	DevicesMaxAmount int            `json:"devicesMaxAmount"`
-	DevicesMinAmount int            `json:"devicesMinAmount"`
-	ID               string         `json:"id"`
-	Image            string         `json:"image"`
-	ImageMobile      string         `json:"imageMobile"`
-	IsActive         bool           `json:"isActive"`
-	Name             string         `json:"name"`
-	Position         int            `json:"position"`
-	PrepaidTraffic   int            `json:"prepaidTraffic"`
-	Price            int            `json:"price"`
-	SpeedByTime      *[]SpeedByTime `json:"speedByTime"` // Struct for handling time-based speed
-	TrafficInet      int            `json:"trafficInet"`
-	Type             string         `json:"type"`
-	UpdatedAt        string         `json:"updatedAt"` // Consider time.Time if handling timestamps
-}
-
-type BalanceData struct {
-	DateStart                string            `json:"dateStart"`
-	EndDate                  string            `json:"endDate"`
-	Address                  string            `json:"address"`
-	Apartment                string            `json:"apartment"`
-	Identify                 string            `json:"identify"`
-	Login                    string            `json:"login"`
-	Phone                    string            `json:"phone"`
-	Balance                  int               `json:"balance"`
-	DiscountLoyality         int               `json:"discountLoyality"`
-	AbonentId                int               `json:"abonentId"`
-	AdditionalTraffic        int               `json:"additionalTraffic"`
-	UnreadNotificationsCount int               `json:"unreadNotificationsCount"`
-	Tariff                   BillingTariffPlan `json:"tariff"`
-	//NextTariff               *BillingTariffPlan `json:"nextTariff"`
-	//RecommendedTariff        *BillingTariffPlan `json:"recommendedTariff"`
-}
-
 type SubscriptionResponse struct {
-	Status  string      `json:"status"`
-	Success bool        `json:"success"`
-	Data    BalanceData `json:"data"`
-}
-type PromoCodeResponse struct {
-	Status  string      `json:"status"`  // "OK", "ALREADY_EXISTS", "PERMISSION_DENIED"
-	Data    interface{} `json:"data"`    // Flexible to handle string or nested data
-	Success bool        `json:"success"` // true or false
+	Status  string              `json:"status"`
+	Success bool                `json:"success"`
+	Data    volumes.BalanceData `json:"data"`
 }
 
 // GetUserData fetches user data from the server
-func GetUserData(token string, language string) (BalanceData, error) {
+func GetUserData(token string, language string) (volumes.BalanceData, error) {
 	url := getBaseUrl("/api/v1/abonents/info")
 
 	// Create HTTP client and request
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return BalanceData{}, fmt.Errorf("failed to create request: %w", err)
+		return volumes.BalanceData{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
@@ -186,7 +90,7 @@ func GetUserData(token string, language string) (BalanceData, error) {
 	resp, err := client.Do(req)
 
 	if err != nil {
-		return BalanceData{}, fmt.Errorf("request failed: %w", err)
+		return volumes.BalanceData{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 	loggers.Info("response from get user data", resp)
@@ -194,18 +98,18 @@ func GetUserData(token string, language string) (BalanceData, error) {
 	// Check for non-200 status codes
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
-		return BalanceData{}, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return volumes.BalanceData{}, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Decode the response
 	var subscriptionResponse SubscriptionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&subscriptionResponse); err != nil {
-		return BalanceData{}, fmt.Errorf("failed to decode response: %w", err)
+		return volumes.BalanceData{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	// Validate the response status
 	if subscriptionResponse.Status != "OK" || !subscriptionResponse.Success {
-		return BalanceData{}, fmt.Errorf("unsuccessful response: status = %s, success = %v", subscriptionResponse.Status, subscriptionResponse.Success)
+		return volumes.BalanceData{}, fmt.Errorf("unsuccessful response: status = %s, success = %v", subscriptionResponse.Status, subscriptionResponse.Success)
 	}
 
 	// Return the data
@@ -213,7 +117,7 @@ func GetUserData(token string, language string) (BalanceData, error) {
 }
 
 // Submit user token
-func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
+func ActivateToken(token string, pinCode string) (volumes.PromoCodeResponse, error) {
 	url := getBaseUrl("/api/v1/abonents/activate-promo-code")
 
 	// Create HTTP client and request
@@ -230,7 +134,7 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 
 	if err != nil {
-		return PromoCodeResponse{}, fmt.Errorf("failed to create request: %w", err)
+		return volumes.PromoCodeResponse{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set headers
@@ -240,7 +144,7 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 
 	// Perform the request
 	resp, err := client.Do(req)
-	var promoCodeResponse PromoCodeResponse
+	var promoCodeResponse volumes.PromoCodeResponse
 	loggers.Info("response from activate function", resp)
 
 	if err != nil {
@@ -267,7 +171,7 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&promoCodeResponse); err != nil {
 		promoCodeResponse.Status = "UNKNOWN"
 
-		return PromoCodeResponse{}, fmt.Errorf("failed to decode response: %w", err)
+		return volumes.PromoCodeResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	// Return the data
@@ -278,32 +182,13 @@ func ActivateToken(token string, pinCode string) (PromoCodeResponse, error) {
 func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (string, error) {
 	url := getBaseUrl("/api/v1/abonents/sign-in")
 
-	// Create a struct for the request payload
-	type LoginRequest struct {
-		Login          string `json:"login"`
-		Password       string `json:"password"`
-		PhoneNumber    string `json:"phoneNumber"`
-		TelegramUserID string `json:"telegramUserID"`
-	}
-
-	// Create a struct for the response
-	type TokenResponse struct {
-		AccessToken  string `json:"accessToken"`
-		RefreshToken string `json:"refreshToken"`
-	}
-
-	type LoginResponse struct {
-		Status  string        `json:"status"`
-		Success bool          `json:"success"`
-		Data    TokenResponse `json:"data"`
-	}
-
 	// Build the request payload
-	payload := LoginRequest{
+	payload := volumes.LoginRequest{
 		Login:          login,
 		Password:       password,
 		PhoneNumber:    phoneNumber,
 		TelegramUserID: string(telegramUserID),
+		UserSession:    helpers.GetUserSession(),
 	}
 
 	// Encode payload to JSON
@@ -346,7 +231,7 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	}
 
 	// Decode the JSON response
-	var loginResponse LoginResponse
+	var loginResponse volumes.LoginResponse
 	if err := json.Unmarshal(body, &loginResponse); err != nil {
 		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -359,13 +244,8 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	return loginResponse.Data.AccessToken, nil
 }
 
-type CategoryResponse struct {
-	Success bool                       `json:"success"`
-	Data    []volumes.CategoryDataType `json:"data"`
-}
-
 func GetCategories(language string) ([]volumes.CategoryDataType, error) {
-	url := getBaseFAQUrl("/api/faqCategory/v1")
+	url := helpers.GetBaseFAQUrl("/api/faqCategory/v1")
 
 	// Create HTTP client and request
 	client := &http.Client{}
@@ -400,7 +280,7 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 	// Decode the response
-	var subscriptionResponse CategoryResponse
+	var subscriptionResponse volumes.CategoryResponse
 	body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
 
 	if err := json.Unmarshal(body, &subscriptionResponse); err != nil {
@@ -416,11 +296,6 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	return subscriptionResponse.Data, nil
 }
 
-type SubCategoryResponse struct {
-	Success bool                          `json:"success"`
-	Data    []volumes.SubCategoryDataType `json:"data"`
-}
-
 func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
 	var apiPath string
 	if subCategoryId == -1 {
@@ -430,7 +305,7 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 
 	}
 
-	url := getBaseFAQUrl(apiPath)
+	url := helpers.GetBaseFAQUrl(apiPath)
 	// Create HTTP client and request
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -461,7 +336,7 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 	// Decode the response
-	var subscriptionResponse SubCategoryResponse
+	var subscriptionResponse volumes.SubCategoryResponse
 	body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
 
 	if err := json.Unmarshal(body, &subscriptionResponse); err != nil {

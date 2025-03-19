@@ -12,33 +12,9 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
-	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/joho/godotenv"
 )
-
-// getUserAgent generates a User-Agent string based on the platform.
-func GetUserAgent() string {
-	// Get the operating system and architecture
-	os := runtime.GOOS
-	arch := runtime.GOARCH
-
-	// Define a base User-Agent string for your bot
-	baseUserAgent := "MyTuronBot/1.0"
-
-	// Append platform-specific information
-	switch os {
-	case "windows":
-		return fmt.Sprintf("%s (Windows; %s)", baseUserAgent, arch)
-	case "darwin":
-		return fmt.Sprintf("%s (macOS; %s)", baseUserAgent, arch)
-	case "linux":
-		return fmt.Sprintf("%s (Linux; %s)", baseUserAgent, arch)
-	default:
-		return fmt.Sprintf("%s (%s; %s)", baseUserAgent, os, arch)
-	}
-
-}
 
 func cutFirst16Chars(dateStr string) string {
 	parsedTime, err := time.Parse("2006-01-02", dateStr)
@@ -92,7 +68,7 @@ func ConvertDateFormat(input string) string {
 }
 
 // Get formatted subscription message
-func GetSubscriptionMessage(balanceData server.BalanceData, chatID int64, userSessions *sync.Map) (string, error) {
+func GetSubscriptionMessage(balanceData volumes.BalanceData, chatID int64, userSessions *sync.Map) (string, error) {
 	// Get translations based on the user language
 	translate := func(key string) string {
 		return translations.GetTranslation(userSessions, chatID, key)
@@ -190,7 +166,7 @@ func GetLastMessageID(bot *tgbotapi.BotAPI, chatID int64) (int, error) {
 }
 
 // GetFormattedPromoCodeMessage generates a user-friendly message based on the promo code response
-func GetFormattedPromoCodeMessage(promoResponse server.PromoCodeResponse, chatID int64, userSessions *sync.Map) (string, error) {
+func GetFormattedPromoCodeMessage(promoResponse volumes.PromoCodeResponse, chatID int64, userSessions *sync.Map) (string, error) {
 	// Get translations based on the user language
 	translate := func(key string) string {
 		return translations.GetTranslation(userSessions, chatID, key)
@@ -223,6 +199,41 @@ func GetFormattedPromoCodeMessage(promoResponse server.PromoCodeResponse, chatID
 	return formattedMessage, nil
 }
 
+// getUserAgent generates a User-Agent string based on the platform.
+func GetUserSession() volumes.UserSessionRequest {
+	// Get the operating system and architecture
+	os := runtime.GOOS
+	//arch := runtime.GOARCH
+
+	// Define a base User-Agent string for your bot
+	baseUserAgent := "BOT"
+
+	// Append platform-specific information
+	switch os {
+	case "windows":
+		return volumes.UserSessionRequest{
+			OSName:     "Windows",
+			DeviceType: baseUserAgent,
+		}
+	case "darwin":
+		return volumes.UserSessionRequest{
+			OSName:     "macOS",
+			DeviceType: baseUserAgent,
+		}
+	case "linux":
+		return volumes.UserSessionRequest{
+			OSName:     "Linux",
+			DeviceType: baseUserAgent,
+		}
+	default:
+		return volumes.UserSessionRequest{
+			OSName:     os,
+			DeviceType: baseUserAgent,
+		}
+	}
+
+}
+
 func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	// Clear the user session
 	userSessions.Delete(chatID)
@@ -240,4 +251,18 @@ func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 		user.State = volumes.LOGIN
 	}
 	bot.Send(reply)
+}
+
+func GetBaseFAQUrl(apiPath string) string {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	BASE_FAQ_URL := os.Getenv("BASE_FAQ_URL")
+	if BASE_FAQ_URL == "" {
+		log.Fatalf("BASE_FAQ_URL is not set in .env file")
+	}
+	url := fmt.Sprintf("%s%s", BASE_FAQ_URL, apiPath)
+	return url
 }
