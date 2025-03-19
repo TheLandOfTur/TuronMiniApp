@@ -18,29 +18,11 @@ import (
 
 var lastMessageIDs sync.Map // To track the last message sent by the bot
 
-func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
-	// Clear the user session
-	userSessions.Delete(chatID)
-	userSessions.Clear()
-	langKeyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton("\U0001F1F7\U0001F1FA Русский"),
-			tgbotapi.NewKeyboardButton("\U0001F1FA\U0001F1FF O'zbekcha"),
-		),
-	)
-	reply := tgbotapi.NewMessage(chatID, "Пожалуйста, выберите язык: / Iltimos, tilni tanlang:")
-	reply.ReplyMarkup = langKeyboard
-	if session, ok := userSessions.Load(chatID); ok {
-		user := session.(*volumes.UserSession)
-		user.State = volumes.LOGIN
-	}
-	bot.Send(reply)
-}
 func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 	switch update.Message.Text {
 	case translations.GetTranslation(userSessions, chatID, "yes"):
-		StartEvent(bot, chatID, userSessions)
+		helpers.StartEvent(bot, chatID, userSessions)
 	case translations.GetTranslation(userSessions, chatID, "no"):
 		events.ShowMainMenu(bot, chatID, userSessions)
 	}

@@ -2,6 +2,8 @@ package chat
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/helpers"
+	"strings"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/server"
@@ -173,7 +175,7 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 		// If there's no token, change the user state to LOGIN
 		if user.Phone == "" {
 			user.State = volumes.SUBMIT_PHONE
-			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhonenumber")))
+			contactButton := tgbotapi.NewKeyboardButton(fmt.Sprintf("📱 %s", translations.GetTranslation(userSessions, chatID, "sharePhoneNumber")))
 			contactButton.RequestContact = true // Enable the contact request
 			keyboard := tgbotapi.NewReplyKeyboard(
 				tgbotapi.NewKeyboardButtonRow(
@@ -242,6 +244,8 @@ func ShowCategories(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) 
 			user.State = volumes.SELECT_CATEGORY
 		}
 		bot.Send(message)
+	} else {
+		helpers.StartEvent(bot, chatID, userSessions)
 	}
 }
 

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
@@ -19,16 +20,16 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	chatID := msg.Chat.ID
 
 	if msg.Text == "/start" {
-		conversations.StartEvent(bot, chatID, &userSessions)
+		helpers.StartEvent(bot, chatID, &userSessions)
 		return
 	}
 	if msg.Text == fmt.Sprintf("🚪 %s", translations.GetTranslation(&userSessions, chatID, "Exit")) {
-		//conversations.StartEvent(bot, chatID, &userSessions)
+		//helpers.StartEvent(bot, chatID, &userSessions)
 		events.QuestionaryLogOut(bot, chatID, &userSessions)
 		return
 	}
 	if msg.Text == translations.GetTranslation(&userSessions, chatID, "cancel") {
-		conversations.StartEvent(bot, chatID, &userSessions)
+		helpers.StartEvent(bot, chatID, &userSessions)
 		return
 	}
 	if msg.Text == translations.GetTranslation(&userSessions, chatID, "mainMenu") {

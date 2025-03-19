@@ -1,12 +1,11 @@
 package main
 
 import (
-	"log"
-	"net/http"
-
 	"github.com/OzodbekX/TuronMiniApp/handlers" // Import the handlers package
 	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"github.com/OzodbekX/TuronMiniApp/listeners"
+	"log"
+	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )

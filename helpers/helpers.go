@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,29 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/joho/godotenv"
 )
+
+// getUserAgent generates a User-Agent string based on the platform.
+func GetUserAgent() string {
+	// Get the operating system and architecture
+	os := runtime.GOOS
+	arch := runtime.GOARCH
+
+	// Define a base User-Agent string for your bot
+	baseUserAgent := "MyTuronBot/1.0"
+
+	// Append platform-specific information
+	switch os {
+	case "windows":
+		return fmt.Sprintf("%s (Windows; %s)", baseUserAgent, arch)
+	case "darwin":
+		return fmt.Sprintf("%s (macOS; %s)", baseUserAgent, arch)
+	case "linux":
+		return fmt.Sprintf("%s (Linux; %s)", baseUserAgent, arch)
+	default:
+		return fmt.Sprintf("%s (%s; %s)", baseUserAgent, os, arch)
+	}
+
+}
 
 func cutFirst16Chars(dateStr string) string {
 	parsedTime, err := time.Parse("2006-01-02", dateStr)
@@ -197,4 +221,23 @@ func GetFormattedPromoCodeMessage(promoResponse server.PromoCodeResponse, chatID
 	)
 
 	return formattedMessage, nil
+}
+
+func StartEvent(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+	// Clear the user session
+	userSessions.Delete(chatID)
+	userSessions.Clear()
+	langKeyboard := tgbotapi.NewReplyKeyboard(
+		tgbotapi.NewKeyboardButtonRow(
+			tgbotapi.NewKeyboardButton("\U0001F1F7\U0001F1FA Русский"),
+			tgbotapi.NewKeyboardButton("\U0001F1FA\U0001F1FF O'zbekcha"),
+		),
+	)
+	reply := tgbotapi.NewMessage(chatID, "Пожалуйста, выберите язык: / Iltimos, tilni tanlang:")
+	reply.ReplyMarkup = langKeyboard
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		user.State = volumes.LOGIN
+	}
+	bot.Send(reply)
 }
