@@ -88,7 +88,7 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 		}
 
 		// If there's a valid token, fetch the user balance
-		balanceData, err := server.GetUserData(user.Token, user.Language)
+		balanceData, err := server.GetUserData(volumes.TokenResponse{AccessToken: user.Token, RefreshToken: user.RefreshToken}, user.Language)
 		if err != nil {
 			// Handle error fetching balance data
 			msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Failed to fetch balance data: %v", err))

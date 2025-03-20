@@ -37,18 +37,19 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	}
 
 	lang := "uz"
-	token := ""
+	userTokens := volumes.TokenResponse{}
 
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
 		user.SelectedCategoryId = selectedCategoryID
 		lang = user.Language
-		token = user.Token
+		userTokens.AccessToken = user.Token
+		userTokens.RefreshToken = user.RefreshToken
 	}
 	var err error
 	// If there's a valid token, fetch the user balance
 
-	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, -1)
+	cachedSubCategories, err = server.GetSubCategories(lang, userTokens, selectedCategoryID, -1)
 
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
@@ -60,13 +61,10 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	var keyboard [][]tgbotapi.KeyboardButton
 
 	// Map cachedSubCategories to keyboard buttons
-	var row []tgbotapi.KeyboardButton
 	for _, category := range cachedSubCategories {
 		button := tgbotapi.NewKeyboardButton(category.Question)
-		row = append(row, button)
+		keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
 	}
-	// Add the row of buttons to the keyboard
-	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
@@ -74,6 +72,7 @@ func handleCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+	replyMarkup.ResizeKeyboard = true
 
 	// Send the message with the keyboard
 	message := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseSelectFAQ"))
@@ -95,7 +94,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Find the ID of the category based on its name
 
-	if strings.TrimSpace(selectedFAQName) == strings.TrimSpace(translations.GetTranslation(userSessions, chatID, "otherQuestion")) {
+	if strings.TrimSpace(selectedFAQName) == strings.TrimSpace(translations.GetTranslation(userSessions, chatID, "connectWithOperator")) {
 		//messageText := "Telegram: @turonsupport"
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "operatorMessage"))
 		msg.ParseMode = "HTML"
@@ -103,9 +102,12 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		return
 
 	}
+	fmt.Println("222222222222222222222222222222222")
+	fmt.Println(cachedSubCategories)
+	fmt.Println("222222222222222222222222222222222")
 
 	for _, category := range cachedSubCategories {
-		if category.Question == selectedFAQName {
+		if strings.TrimSpace(category.Question) == strings.TrimSpace(selectedFAQName) {
 			selectedSubCategoryID = category.Id
 			selectedSubCategoryAnswer = category.Answer
 			break
@@ -113,7 +115,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	}
 
 	lang := "uz"
-	token := ""
+	userTokens := volumes.TokenResponse{}
 	var selectedCategoryID int64
 
 	if session, ok := userSessions.Load(chatID); ok {
@@ -121,13 +123,16 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		user.SelectedSubCategoryId = selectedSubCategoryID
 		lang = user.Language
 		selectedCategoryID = user.SelectedCategoryId
-		token = user.Token
+		userTokens.AccessToken = user.Token
+		userTokens.RefreshToken = user.RefreshToken
 	}
 	var err error
 	// If there's a valid token, fetch the user balance
 
-	cachedSubCategories, err = server.GetSubCategories(lang, token, selectedCategoryID, selectedSubCategoryID)
-
+	cachedSubCategories, err = server.GetSubCategories(lang, userTokens, selectedCategoryID, selectedSubCategoryID)
+	fmt.Println("1111111111111111111")
+	fmt.Println(cachedSubCategories)
+	fmt.Println("11111111111111111111111")
 	if err != nil {
 		msg := tgbotapi.NewMessage(chatID, "Error fetching data from the server.")
 		bot.Send(msg)
@@ -136,23 +141,22 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 
 	// Create a new keyboard with category buttons
 	var keyboard [][]tgbotapi.KeyboardButton
+	print("working")
 
-	// Map cachedSubCategories to keyboard buttons
-	var row []tgbotapi.KeyboardButton
 	for _, category := range cachedSubCategories {
 		button := tgbotapi.NewKeyboardButton(category.Question)
-		row = append(row, button)
+		keyboard = append(keyboard, []tgbotapi.KeyboardButton{button})
 	}
 	// Add the row of buttons to the keyboard
-	keyboard = append(keyboard, row)
 
 	// Add the "main menu" button at the bottom
 	mainMenuButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu"))
-	connectToButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "otherQuestion"))
+	connectToButton := tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "connectWithOperator"))
 	keyboard = append(keyboard, []tgbotapi.KeyboardButton{connectToButton})
 	keyboard = append(keyboard, []tgbotapi.KeyboardButton{mainMenuButton})
 	// Create the keyboard markup
 	replyMarkup := tgbotapi.NewReplyKeyboard(keyboard...)
+	replyMarkup.ResizeKeyboard = true
 	var message tgbotapi.MessageConfig
 
 	if len(selectedSubCategoryAnswer) > 0 {

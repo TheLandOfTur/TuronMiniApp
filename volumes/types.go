@@ -22,6 +22,7 @@ type UserSession struct {
 	Phone                 string
 	Password              string
 	Token                 string
+	RefreshToken          string
 	SelectedCategoryId    int64
 	SelectedSubCategoryId int64
 }

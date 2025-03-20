@@ -50,7 +50,7 @@ func checkActivePromoCode(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	chatID := update.Message.Chat.ID
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-		promoResponse, err := server.ActivateToken(user.Token, update.Message.Text)
+		promoResponse, err := server.ActivateToken(volumes.TokenResponse{AccessToken: user.Token, RefreshToken: user.RefreshToken}, update.Message.Text)
 
 		formattedMessage, err := helpers.GetFormattedPromoCodeMessage(promoResponse, chatID, userSessions)
 		if err != nil {
@@ -221,7 +221,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	userID := update.Message.From.ID
 
 	// Call backend login function
-	token, err := server.LoginToBackend(user.Phone, user.Username, password, userID)
+	loginRespose, err := server.LoginToBackend(user.Phone, user.Username, password, userID)
 	if err != nil {
 		// Login failed
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
@@ -239,9 +239,10 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	}
 
 	// Save the token to the session if needed
-	user.Token = token
+	user.Token = loginRespose.AccessToken
+	user.RefreshToken = loginRespose.RefreshToken
 	// Assuming `balanceData` is fetched and has the required fields
-	balanceData, err := server.GetUserData(token, user.Language)
+	balanceData, err := server.GetUserData(loginRespose, user.Language)
 	if err != nil {
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))

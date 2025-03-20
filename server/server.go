@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"io"
@@ -30,6 +31,68 @@ func getBaseUrl(apiPath string) string {
 	}
 	url := fmt.Sprintf("%s%s", baseURL, apiPath)
 	return url
+}
+
+// RefreshToken refreshes the authentication token and executes the provided function on success
+func RefreshToken(onSuccess func(string), user volumes.UserSession) error {
+	url := getBaseUrl("/api/v1/bot/refresh-token")
+
+	// Build the request payload
+	payload := map[string]string{
+		"refreshToken": user.RefreshToken,
+	}
+
+	// Encode payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Create an HTTP client and request
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for non-200 response codes
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode the JSON response
+	var refreshResponse struct {
+		Success      bool   `json:"success"`
+		Token        string `json:"accessToken"`
+		RefreshToken string `json:"refreshToken"`
+	}
+	if err := json.Unmarshal(body, &refreshResponse); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !refreshResponse.Success {
+		return errors.New("refresh token failed: server response was not successful")
+	}
+
+	// Call the success function with the new token
+	onSuccess(refreshResponse.Token)
+	return nil
 }
 
 // Fetch objects from a server
@@ -64,7 +127,7 @@ func FetchTariffsFromServer() ([]volumes.TariffObject, error) {
 }
 
 // GetUserData fetches user data from the server
-func GetUserData(token string, language string) (volumes.BalanceData, error) {
+func GetUserData(userData volumes.TokenResponse, language string) (volumes.BalanceData, error) {
 	url := getBaseUrl("/api/v1/abonents/info")
 
 	// Create HTTP client and request
@@ -77,7 +140,7 @@ func GetUserData(token string, language string) (volumes.BalanceData, error) {
 	// Set headers
 	req.Header.Add("Language", language)
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.AccessToken))
 	loggers.Info("response from get user data", req)
 
 	// Perform the request
@@ -111,7 +174,7 @@ func GetUserData(token string, language string) (volumes.BalanceData, error) {
 }
 
 // Submit user token
-func ActivateToken(token string, pinCode string) (volumes.PromoCodeResponse, error) {
+func ActivateToken(userTokens volumes.TokenResponse, pinCode string) (volumes.PromoCodeResponse, error) {
 	url := getBaseUrl("/api/v1/abonents/activate-promo-code")
 
 	// Create HTTP client and request
@@ -133,7 +196,7 @@ func ActivateToken(token string, pinCode string) (volumes.PromoCodeResponse, err
 
 	// Set headers
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userTokens.AccessToken))
 	loggers.Info("response from activate function", url, " ", req)
 
 	// Perform the request
@@ -173,8 +236,8 @@ func ActivateToken(token string, pinCode string) (volumes.PromoCodeResponse, err
 }
 
 // LoginToBackend logs in to the backend with phoneNumber, login, and password
-func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (string, error) {
-	url := getBaseUrl("/api/v1/abonents/sign-in")
+func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (volumes.TokenResponse, error) {
+	url := getBaseUrl("/api/v1/bot/sign-in")
 
 	// Build the request payload
 	payload := volumes.LoginRequest{
@@ -188,7 +251,7 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	// Encode payload to JSON
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal payload: %w", err)
+		return volumes.TokenResponse{}, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	// Create an HTTP client and request
@@ -197,7 +260,7 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	loggers.Info("response from login to backend", url, " ", req)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return volumes.TokenResponse{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	// Set the request headers
@@ -209,33 +272,33 @@ func LoginToBackend(phoneNumber, login, password string, telegramUserID int64) (
 	loggers.Info("response from login to backend", err, " ", resp)
 
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return volumes.TokenResponse{}, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
+		return volumes.TokenResponse{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Check for non-200 response codes
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return volumes.TokenResponse{}, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Decode the JSON response
 	var loginResponse volumes.LoginResponse
 	if err := json.Unmarshal(body, &loginResponse); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return volumes.TokenResponse{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	// Check for a successful response
 	if !loginResponse.Success || loginResponse.Status != "OK" {
-		return "", fmt.Errorf("login failed: server response was not successful")
+		return volumes.TokenResponse{}, fmt.Errorf("login failed: server response was not successful")
 	}
 	// Return the access token
-	return loginResponse.Data.AccessToken, nil
+	return loginResponse.Data, nil
 }
 
 func GetCategories(language string) ([]volumes.CategoryDataType, error) {
@@ -290,7 +353,7 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	return subscriptionResponse.Data, nil
 }
 
-func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
+func GetSubCategories(lang string, userTokens volumes.TokenResponse, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
 	var apiPath string
 	if subCategoryId == -1 {
 		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d", categoryId)
@@ -311,7 +374,7 @@ func GetSubCategories(lang, token string, categoryId, subCategoryId int64) ([]vo
 
 	// Set headers
 	req.Header.Add("Language", lang)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userTokens.AccessToken))
 	var emptyArray = []volumes.SubCategoryDataType{}
 	loggers.Info("response from get subcategories", url, " ", req)
 
