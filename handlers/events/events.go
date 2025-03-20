@@ -2,6 +2,7 @@ package events
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/logger"
 	"log"
 	"strings"
 	"sync"
@@ -12,6 +13,8 @@ import (
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+var loggers = logger.GetLogger()
 
 func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	// Create the keyboard for the main menu
@@ -48,7 +51,6 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 	// Check if the user session exists
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-
 		// If there's no token, change the user state to LOGIN
 		if user.Phone == "" {
 			user.State = volumes.SUBMIT_PHONE
@@ -88,11 +90,11 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 		}
 
 		// If there's a valid token, fetch the user balance
-		balanceData, err := server.GetUserData(volumes.TokenResponse{AccessToken: user.Token, RefreshToken: user.RefreshToken}, user.Language)
+		balanceData, err := server.GetUserData(user)
 		if err != nil {
 			// Handle error fetching balance data
-			msg := tgbotapi.NewMessage(chatID, fmt.Sprintf("Failed to fetch balance data: %v", err))
-			bot.Send(msg)
+			loggers.Warn("some thing wrong in server", err)
+			helpers.StartEvent(bot, chatID, userSessions)
 			return
 		}
 
@@ -109,7 +111,6 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 		msg := tgbotapi.NewMessage(chatID, formattedMessage)
 		msg.ParseMode = "HTML"
 		bot.Send(msg)
-
 		// Change the user state to END_CONVERSATION after balance is shown
 		user.State = volumes.END_CONVERSATION
 	}

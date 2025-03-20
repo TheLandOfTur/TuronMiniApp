@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/logger"
 	"log"
 	"regexp"
 	"sync"
@@ -17,6 +18,7 @@ import (
 )
 
 var lastMessageIDs sync.Map // To track the last message sent by the bot
+var loggers = logger.GetLogger()
 
 func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
@@ -50,7 +52,13 @@ func checkActivePromoCode(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 	chatID := update.Message.Chat.ID
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-		promoResponse, err := server.ActivateToken(volumes.TokenResponse{AccessToken: user.Token, RefreshToken: user.RefreshToken}, update.Message.Text)
+		promoResponse, err := server.ActivateToken(user, update.Message.Text)
+		if err != nil {
+			// Handle error fetching balance data
+			loggers.Warn("some thing wrong in server", err)
+			helpers.StartEvent(bot, chatID, userSessions)
+			return
+		}
 
 		formattedMessage, err := helpers.GetFormattedPromoCodeMessage(promoResponse, chatID, userSessions)
 		if err != nil {
@@ -66,6 +74,8 @@ func checkActivePromoCode(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 		user.State = volumes.END_CONVERSATION
 		events.ShowMainMenu(bot, chatID, userSessions)
 
+	} else {
+		helpers.StartEvent(bot, chatID, userSessions)
 	}
 }
 
@@ -242,7 +252,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	user.Token = loginRespose.AccessToken
 	user.RefreshToken = loginRespose.RefreshToken
 	// Assuming `balanceData` is fetched and has the required fields
-	balanceData, err := server.GetUserData(loginRespose, user.Language)
+	balanceData, err := server.GetUserData(user)
 	if err != nil {
 		deleteUserMessage(bot, chatID, update.Message.MessageID)
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "wrongParol"))

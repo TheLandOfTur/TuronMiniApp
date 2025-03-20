@@ -34,65 +34,49 @@ func getBaseUrl(apiPath string) string {
 }
 
 // RefreshToken refreshes the authentication token and executes the provided function on success
-func RefreshToken(onSuccess func(string), user volumes.UserSession) error {
-	url := getBaseUrl("/api/v1/bot/refresh-token")
-
-	// Build the request payload
-	payload := map[string]string{
-		"refreshToken": user.RefreshToken,
-	}
-
-	// Encode payload to JSON
-	jsonPayload, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
+func RefreshToken[T any](onSuccess func() T, userData *volumes.UserSession) (T, error) {
+	url := getBaseUrl("/api/v1/abonents/refresh-token")
 	// Create an HTTP client and request
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	var zero T
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return zero, fmt.Errorf("failed to create request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.RefreshToken))
 	// Perform the request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return zero, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return zero, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Check for non-200 response codes
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		return zero, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Decode the JSON response
-	var refreshResponse struct {
-		Success      bool   `json:"success"`
-		Token        string `json:"accessToken"`
-		RefreshToken string `json:"refreshToken"`
-	}
+	var refreshResponse = volumes.LoginResponse{}
 	if err := json.Unmarshal(body, &refreshResponse); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
+		return zero, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if !refreshResponse.Success {
-		return errors.New("refresh token failed: server response was not successful")
+		return zero, errors.New("refresh token failed: server response was not successful")
+	} else {
+		userData.Token = refreshResponse.Data.AccessToken
+		userData.RefreshToken = refreshResponse.Data.RefreshToken
 	}
 
-	// Call the success function with the new token
-	onSuccess(refreshResponse.Token)
-	return nil
+	return onSuccess(), nil
 }
 
 // Fetch objects from a server
@@ -127,112 +111,162 @@ func FetchTariffsFromServer() ([]volumes.TariffObject, error) {
 }
 
 // GetUserData fetches user data from the server
-func GetUserData(userData volumes.TokenResponse, language string) (volumes.BalanceData, error) {
+func GetUserData(userData *volumes.UserSession) (volumes.BalanceData, error) {
 	url := getBaseUrl("/api/v1/abonents/info")
+	var attemptRequest func() (volumes.BalanceData, error)
+	attemptRequest = func() (volumes.BalanceData, error) {
 
-	// Create HTTP client and request
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return volumes.BalanceData{}, fmt.Errorf("failed to create request: %w", err)
+		// Create HTTP client and request
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return volumes.BalanceData{}, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		// Set headers
+		req.Header.Add("Language", userData.Language)
+		req.Header.Add("Accept", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.Token))
+		loggers.Info("response from get user data", req)
+
+		// Perform the request
+		resp, err := client.Do(req)
+
+		if err != nil {
+			return volumes.BalanceData{}, fmt.Errorf("request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		loggers.Info("response from get user data", resp)
+
+		// If server returns 401, refresh the token and retry
+		if resp.StatusCode == http.StatusUnauthorized {
+			loggers.Warn("received 401, attempting to refresh token")
+
+			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
+				return volumes.TokenResponse{
+					AccessToken:  userData.Token,
+					RefreshToken: userData.RefreshToken,
+				}
+			}, userData)
+
+			if refreshErr != nil {
+				return volumes.BalanceData{}, fmt.Errorf("failed to refresh token: %w", refreshErr)
+			}
+
+			// Retry the request with the new token
+			return attemptRequest()
+		}
+
+		// Check for non-200 status codes
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+			return volumes.BalanceData{}, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Decode the response
+		var subscriptionResponse volumes.SubscriptionResponse
+		if err := json.NewDecoder(resp.Body).Decode(&subscriptionResponse); err != nil {
+			return volumes.BalanceData{}, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		// Validate the response status
+		if subscriptionResponse.Status != "OK" || !subscriptionResponse.Success {
+			return volumes.BalanceData{}, fmt.Errorf("unsuccessful response: status = %s, success = %v", subscriptionResponse.Status, subscriptionResponse.Success)
+		}
+
+		// Return the data
+		return subscriptionResponse.Data, nil
+
 	}
+	return attemptRequest()
 
-	// Set headers
-	req.Header.Add("Language", language)
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.AccessToken))
-	loggers.Info("response from get user data", req)
-
-	// Perform the request
-	resp, err := client.Do(req)
-
-	if err != nil {
-		return volumes.BalanceData{}, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-	loggers.Info("response from get user data", resp)
-
-	// Check for non-200 status codes
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
-		return volumes.BalanceData{}, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Decode the response
-	var subscriptionResponse volumes.SubscriptionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&subscriptionResponse); err != nil {
-		return volumes.BalanceData{}, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Validate the response status
-	if subscriptionResponse.Status != "OK" || !subscriptionResponse.Success {
-		return volumes.BalanceData{}, fmt.Errorf("unsuccessful response: status = %s, success = %v", subscriptionResponse.Status, subscriptionResponse.Success)
-	}
-
-	// Return the data
-	return subscriptionResponse.Data, nil
 }
 
 // Submit user token
-func ActivateToken(userTokens volumes.TokenResponse, pinCode string) (volumes.PromoCodeResponse, error) {
+func ActivateToken(userData *volumes.UserSession, pinCode string) (volumes.PromoCodeResponse, error) {
 	url := getBaseUrl("/api/v1/abonents/activate-promo-code")
-
-	// Create HTTP client and request
-	client := &http.Client{}
-	type PinCode struct {
-		PinCode string `json:"pinCode"`
-	}
-	// Build the request payload
-	payload := PinCode{
-		PinCode: pinCode,
-	}
-	jsonPayload, err := json.Marshal(payload)
-
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
-
-	if err != nil {
-		return volumes.PromoCodeResponse{}, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userTokens.AccessToken))
-	loggers.Info("response from activate function", url, " ", req)
-
-	// Perform the request
-	resp, err := client.Do(req)
-	var promoCodeResponse volumes.PromoCodeResponse
-	loggers.Info("response from activate function", resp)
-
-	if err != nil {
-		promoCodeResponse.Status = "UNKNOWN"
-		return promoCodeResponse, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check for non-200 status codes
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
-		promoCodeResponse.Status = "UNKNOWN"
-		promoCodeResponse.Success = false
-		if resp.StatusCode == http.StatusForbidden {
-			promoCodeResponse.Status = "PERMISSION_DENIED"
+	var attemptRequest func() (volumes.PromoCodeResponse, error)
+	attemptRequest = func() (volumes.PromoCodeResponse, error) {
+		// Create HTTP client and request
+		client := &http.Client{}
+		type PinCode struct {
+			PinCode string `json:"pinCode"`
 		}
-		if resp.StatusCode == http.StatusConflict {
-			promoCodeResponse.Status = "ALREADY_EXISTS"
+		// Build the request payload
+		payload := PinCode{
+			PinCode: pinCode,
 		}
-		return promoCodeResponse, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		jsonPayload, err := json.Marshal(payload)
+
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+
+		if err != nil {
+			return volumes.PromoCodeResponse{}, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		// Set headers
+		req.Header.Add("Accept", "application/json")
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.Token))
+		loggers.Info("response from activate function", url, " ", req)
+
+		// Perform the request
+		resp, err := client.Do(req)
+		var promoCodeResponse volumes.PromoCodeResponse
+		loggers.Info("response from activate function", resp)
+
+		if err != nil {
+			promoCodeResponse.Status = "UNKNOWN"
+			return promoCodeResponse, fmt.Errorf("request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		loggers.Info("response from get user data", resp)
+
+		// If server returns 401, refresh the token and retry
+		if resp.StatusCode == http.StatusUnauthorized {
+			loggers.Warn("received 401, attempting to refresh token")
+
+			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
+				return volumes.TokenResponse{
+					AccessToken:  userData.Token,
+					RefreshToken: userData.RefreshToken,
+				}
+			}, userData)
+
+			if refreshErr != nil {
+				return volumes.PromoCodeResponse{}, fmt.Errorf("failed to refresh token: %w", refreshErr)
+			}
+
+			// Retry the request with the new token
+			return attemptRequest()
+		}
+
+		// Check for non-200 status codes
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+			promoCodeResponse.Status = "UNKNOWN"
+			promoCodeResponse.Success = false
+			if resp.StatusCode == http.StatusForbidden {
+				promoCodeResponse.Status = "PERMISSION_DENIED"
+			}
+			if resp.StatusCode == http.StatusConflict {
+				promoCodeResponse.Status = "ALREADY_EXISTS"
+			}
+			return promoCodeResponse, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		// Decode the response
+		if err := json.NewDecoder(resp.Body).Decode(&promoCodeResponse); err != nil {
+			promoCodeResponse.Status = "UNKNOWN"
+
+			return volumes.PromoCodeResponse{}, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		// Return the data
+		return promoCodeResponse, nil
+
 	}
+	return attemptRequest()
 
-	// Decode the response
-	if err := json.NewDecoder(resp.Body).Decode(&promoCodeResponse); err != nil {
-		promoCodeResponse.Status = "UNKNOWN"
-
-		return volumes.PromoCodeResponse{}, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Return the data
-	return promoCodeResponse, nil
 }
 
 // LoginToBackend logs in to the backend with phoneNumber, login, and password
@@ -353,7 +387,7 @@ func GetCategories(language string) ([]volumes.CategoryDataType, error) {
 	return subscriptionResponse.Data, nil
 }
 
-func GetSubCategories(lang string, userTokens volumes.TokenResponse, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
+func GetSubCategories(userData *volumes.UserSession, categoryId, subCategoryId int64) ([]volumes.SubCategoryDataType, error) {
 	var apiPath string
 	if subCategoryId == -1 {
 		apiPath = fmt.Sprintf("/api/faq/v1/withAnswer?categoryId=%d", categoryId)
@@ -363,47 +397,72 @@ func GetSubCategories(lang string, userTokens volumes.TokenResponse, categoryId,
 	}
 
 	url := helpers.GetBaseFAQUrl(apiPath)
-	// Create HTTP client and request
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", url, nil)
+	var attemptRequest func() ([]volumes.SubCategoryDataType, error)
+	attemptRequest = func() ([]volumes.SubCategoryDataType, error) {
 
-	if err != nil {
-		req.Header.Add("Accept", "/")
-		return []volumes.SubCategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
-	}
+		// Create HTTP client and request
+		client := &http.Client{}
+		req, err := http.NewRequest("GET", url, nil)
 
-	// Set headers
-	req.Header.Add("Language", lang)
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userTokens.AccessToken))
-	var emptyArray = []volumes.SubCategoryDataType{}
-	loggers.Info("response from get subcategories", url, " ", req)
+		if err != nil {
+			req.Header.Add("Accept", "/")
+			return []volumes.SubCategoryDataType{}, fmt.Errorf("failed to create request: %w", err)
+		}
 
-	// Perform the request
-	resp, err := client.Do(req)
-	loggers.Info("response from subcategories", err, " ", resp)
+		// Set headers
+		req.Header.Add("Language", userData.Language)
+		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.Token))
+		var emptyArray = []volumes.SubCategoryDataType{}
+		loggers.Info("response from get subcategories", url, " ", req)
 
-	if err != nil {
-		return emptyArray, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		// Perform the request
+		resp, err := client.Do(req)
+		loggers.Info("response from subcategories", err, " ", resp)
 
-	// Check for non-200 status codes
-	if resp.StatusCode != http.StatusOK {
+		if err != nil {
+			return emptyArray, fmt.Errorf("request failed: %w", err)
+		}
+		defer resp.Body.Close()
+		loggers.Info("response from get user data", resp)
+		// If server returns 401, refresh the token and retry
+		if resp.StatusCode == http.StatusUnauthorized {
+			loggers.Warn("received 401, attempting to refresh token")
+
+			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
+				return volumes.TokenResponse{
+					AccessToken:  userData.Token,
+					RefreshToken: userData.RefreshToken,
+				}
+			}, userData)
+
+			if refreshErr != nil {
+				return []volumes.SubCategoryDataType{}, fmt.Errorf("failed to refresh token: %w", refreshErr)
+			}
+
+			// Retry the request with the new token
+			return attemptRequest()
+		}
+
+		// Check for non-200 status codes
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
+			return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+		}
+		// Decode the response
+		var subscriptionResponse volumes.SubCategoryResponse
 		body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
-		return emptyArray, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
-	}
-	// Decode the response
-	var subscriptionResponse volumes.SubCategoryResponse
-	body, _ := io.ReadAll(resp.Body) // Read the body for additional error context
 
-	if err := json.Unmarshal(body, &subscriptionResponse); err != nil {
-		return emptyArray, fmt.Errorf("failed to decode response: %w", err)
-	}
+		if err := json.Unmarshal(body, &subscriptionResponse); err != nil {
+			return emptyArray, fmt.Errorf("failed to decode response: %w", err)
+		}
 
-	// Validate the response status
-	if subscriptionResponse.Success != true || !subscriptionResponse.Success {
-		return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
+		// Validate the response status
+		if subscriptionResponse.Success != true || !subscriptionResponse.Success {
+			return emptyArray, fmt.Errorf("unsuccessful response: status = %s, success = %v", "ok", subscriptionResponse.Success)
+		}
+		// Return the data
+		return subscriptionResponse.Data, nil
 	}
-	// Return the data
-	return subscriptionResponse.Data, nil
+	return attemptRequest()
+
 }
