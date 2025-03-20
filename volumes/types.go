@@ -106,7 +106,7 @@ type BalanceData struct {
 	Login                    string            `json:"login"`
 	Phone                    string            `json:"phone"`
 	Balance                  int               `json:"balance"`
-	DiscountLoyality         int               `json:"discountLoyality"`
+	DiscountLoyality         float64           `json:"discountLoyality"`
 	AbonentId                int               `json:"abonentId"`
 	AdditionalTraffic        int               `json:"additionalTraffic"`
 	UnreadNotificationsCount int               `json:"unreadNotificationsCount"`
