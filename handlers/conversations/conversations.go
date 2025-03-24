@@ -55,8 +55,8 @@ func checkActivePromoCode(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSes
 		promoResponse, err := server.ActivateToken(user, update.Message.Text)
 		if err != nil {
 			// Handle error fetching balance data
-			loggers.Warn("some thing wrong in server", err)
-			helpers.StartEvent(bot, chatID, userSessions)
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "promoCodeNotFound"))
+			bot.Send(msg)
 			return
 		}
 

@@ -113,6 +113,9 @@ func ShowUserBalance(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map)
 		bot.Send(msg)
 		// Change the user state to END_CONVERSATION after balance is shown
 		user.State = volumes.END_CONVERSATION
+	} else {
+		helpers.StartEvent(bot, chatID, userSessions)
+
 	}
 }
 
@@ -174,6 +177,9 @@ func RedirectToPromoCode(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.
 
 		// Change the user state to END_CONVERSATION after balance is shown
 		user.State = volumes.ACTIVATE_PROMOCODE
+	} else {
+		helpers.StartEvent(bot, chatID, userSessions)
+
 	}
 }
 
