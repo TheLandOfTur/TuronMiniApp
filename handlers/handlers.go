@@ -28,6 +28,11 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 		events.QuestionaryLogOut(bot, chatID, &userSessions)
 		return
 	}
+	if msg.Text == fmt.Sprintf("⬅️ %s", translations.GetTranslation(&userSessions, chatID, "GoBack")) {
+		//helpers.StartEvent(bot, chatID, &userSessions)
+		events.OnClickGoBack(bot, chatID, &userSessions)
+		return
+	}
 	if msg.Text == translations.GetTranslation(&userSessions, chatID, "cancel") {
 		helpers.StartEvent(bot, chatID, &userSessions)
 		return

@@ -18,9 +18,20 @@ var loggers = logger.GetLogger()
 
 func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 	// Create the keyboard for the main menu
+	var tempUser *volumes.UserSession
+
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
 		user.State = volumes.END_CONVERSATION
+		tempUser = user
+	}
+	// Default Exit button text
+	exitOrLoginButtonText := "Exit"
+	exitOrLoginButtonIcon := "🚪"
+	if tempUser == nil || tempUser.Token == "" { // Check if the user has a token
+		exitOrLoginButtonText = "GoBack"
+		exitOrLoginButtonIcon = "⬅️"
+
 	}
 	mainMenuKeyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
@@ -33,7 +44,7 @@ func ShowMainMenu(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 		),
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(fmt.Sprintf("❓ %s", translations.GetTranslation(userSessions, chatID, "FAQ"))),
-			tgbotapi.NewKeyboardButton(fmt.Sprintf("🚪 %s", translations.GetTranslation(userSessions, chatID, "Exit"))),
+			tgbotapi.NewKeyboardButton(fmt.Sprintf("%s %s", exitOrLoginButtonIcon, translations.GetTranslation(userSessions, chatID, exitOrLoginButtonText))),
 		),
 	)
 	// Create and send the message with the menu
@@ -215,6 +226,11 @@ func QuestionaryLogOut(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Ma
 		user.State = volumes.LOG_OUT
 	}
 	bot.Send(reply)
+}
+
+func OnClickGoBack(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
+	// Language selection
+	helpers.StartEvent(bot, chatID, userSessions)
 }
 
 func SendRequestToBackend(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
