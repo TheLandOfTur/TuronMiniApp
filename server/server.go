@@ -74,6 +74,7 @@ func RefreshToken[T any](onSuccess func() T, userData *volumes.UserSession) (T, 
 	} else {
 		userData.Token = refreshResponse.Data.AccessToken
 		userData.RefreshToken = refreshResponse.Data.RefreshToken
+		userData.TuronId = refreshResponse.Data.TuronId
 	}
 
 	return onSuccess(), nil
@@ -145,6 +146,7 @@ func GetUserData(userData *volumes.UserSession) (volumes.BalanceData, error) {
 			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
 				return volumes.TokenResponse{
 					AccessToken:  userData.Token,
+					TuronId:      userData.TuronId,
 					RefreshToken: userData.RefreshToken,
 				}
 			}, userData)
@@ -228,6 +230,7 @@ func ActivateToken(userData *volumes.UserSession, pinCode string) (volumes.Promo
 			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
 				return volumes.TokenResponse{
 					AccessToken:  userData.Token,
+					TuronId:      userData.TuronId,
 					RefreshToken: userData.RefreshToken,
 				}
 			}, userData)
@@ -431,6 +434,7 @@ func GetSubCategories(userData *volumes.UserSession, categoryId, subCategoryId i
 			_, refreshErr := RefreshToken(func() volumes.TokenResponse {
 				return volumes.TokenResponse{
 					AccessToken:  userData.Token,
+					TuronId:      userData.TuronId,
 					RefreshToken: userData.RefreshToken,
 				}
 			}, userData)
@@ -464,5 +468,31 @@ func GetSubCategories(userData *volumes.UserSession, categoryId, subCategoryId i
 		return subscriptionResponse.Data, nil
 	}
 	return attemptRequest()
+}
 
+func TerminateOwnSession(userData *volumes.UserSession) error {
+	apiPath := fmt.Sprintf("/api/v1/users/%d/sessions/terminateOwn", userData.TuronId)
+	url := getBaseUrl(apiPath)
+
+	client := &http.Client{}
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set headers
+	req.Header.Add("Language", userData.Language)
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", userData.Token))
+
+	loggers.Info("Sending request to terminate session", url, req)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	loggers.Info("Response from terminating session", resp.Body)
+	return nil
 }

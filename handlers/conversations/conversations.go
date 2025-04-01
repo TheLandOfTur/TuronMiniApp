@@ -2,7 +2,6 @@ package conversations
 
 import (
 	"fmt"
-	"github.com/OzodbekX/TuronMiniApp/logger"
 	"log"
 	"regexp"
 	"sync"
@@ -18,12 +17,16 @@ import (
 )
 
 var lastMessageIDs sync.Map // To track the last message sent by the bot
-var loggers = logger.GetLogger()
 
 func handleLogOut(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
 	switch update.Message.Text {
 	case translations.GetTranslation(userSessions, chatID, "yes"):
+		if session, ok := userSessions.Load(chatID); ok {
+			user := session.(*volumes.UserSession)
+			errorResponse := server.TerminateOwnSession(user)
+			fmt.Println(errorResponse)
+		}
 		helpers.StartEvent(bot, chatID, userSessions)
 	case translations.GetTranslation(userSessions, chatID, "no"):
 		events.ShowMainMenu(bot, chatID, userSessions)
@@ -251,6 +254,7 @@ func handlePassword(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions 
 	// Save the token to the session if needed
 	user.Token = loginRespose.AccessToken
 	user.RefreshToken = loginRespose.RefreshToken
+	user.TuronId = loginRespose.TuronId
 	// Assuming `balanceData` is fetched and has the required fields
 	balanceData, err := server.GetUserData(user)
 	if err != nil {

@@ -23,6 +23,7 @@ type UserSession struct {
 	Password              string
 	Token                 string
 	RefreshToken          string
+	TuronId               int64
 	SelectedCategoryId    int64
 	SelectedSubCategoryId int64
 }
@@ -160,6 +161,7 @@ type LoginRequest struct {
 type TokenResponse struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
+	TuronId      int64  `json:"turonId"`
 }
 
 type LoginResponse struct {
