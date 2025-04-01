@@ -2,6 +2,7 @@ package chat
 
 import (
 	"fmt"
+	"github.com/OzodbekX/TuronMiniApp/handlers/events"
 	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"github.com/OzodbekX/TuronMiniApp/logger"
 	"strings"
@@ -99,6 +100,7 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "operatorMessage"))
 		msg.ParseMode = "HTML"
 		bot.Send(msg)
+		events.ShowMainMenu(bot, chatID, userSessions)
 		return
 
 	}
