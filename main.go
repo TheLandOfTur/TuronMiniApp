@@ -1,11 +1,12 @@
 package main
 
 import (
+	"log"
+	"net/http"
+
 	"github.com/OzodbekX/TuronMiniApp/handlers" // Import the handlers package
 	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"github.com/OzodbekX/TuronMiniApp/listeners"
-	"log"
-	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -35,6 +36,11 @@ func main() {
 
 	// Main update loop
 	for update := range updates {
+		if update.CallbackQuery != nil {
+			// User clicked a button
+			handlers.HandleInlineTaps(bot, &update)
+			continue
+		}
 		if update.Message != nil { // Check if update contains a message
 			handlers.HandleMessage(bot, &update)
 		}

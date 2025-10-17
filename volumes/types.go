@@ -1,17 +1,22 @@
 package volumes
 
 const (
-	SELECT_LANGUAGE    = "SELECT_LANGUAGE"
-	LOGIN              = "LOGIN"
-	PASSWORD           = "PASSWORD"
-	END_CONVERSATION   = "END_CONVERSATION"
-	CHANGE_LANGUAGE    = "CHANGE_LANGUAGE"
-	SUBMIT_NAME        = "SUBMIT_NAME"
-	SUBMIT_PHONE       = "SUBMIT_PHONE"
-	SELECT_CATEGORY    = "SELECT_CATEGORY"
-	SELECT_FAQ         = "SELECT_FAQ"
-	LOG_OUT            = "LOG_OUT"
-	ACTIVATE_PROMOCODE = "ACTIVATE_PROMOCODE"
+	SELECT_LANGUAGE        = "SELECT_LANGUAGE"
+	LOGIN                  = "LOGIN"
+	PASSWORD               = "PASSWORD"
+	END_CONVERSATION       = "END_CONVERSATION"
+	CHANGE_LANGUAGE        = "CHANGE_LANGUAGE"
+	SUBMIT_NAME            = "SUBMIT_NAME"
+	SUBMIT_PHONE           = "SUBMIT_PHONE"
+	SELECT_CATEGORY        = "SELECT_CATEGORY"
+	SELECT_FAQ             = "SELECT_FAQ"
+	LOG_OUT                = "LOG_OUT"
+	CHOOSE_USER_TYPE       = "CHOOSE_USER_TYPE"
+	ACTIVATE_PROMOCODE     = "ACTIVATE_PROMOCODE"
+	CHOOSE_LOCATIONS       = "CHOOSE_LOCATIONS"
+	ENTER_FULL_NAME        = "ENTER_FULL_NAME"
+	ENTER_ADDITIONAL_PHONE = "ENTER_ADDITIONAL_PHONE"
+	CONFIRM_APPLICATION    = "CONFIRM_APPLICATION"
 )
 
 type UserSession struct {
@@ -22,10 +27,17 @@ type UserSession struct {
 	Phone                 string
 	Password              string
 	Token                 string
+	FullName              string
 	RefreshToken          string
+	UserType              string
+	AdditionalPhone       string
 	TuronId               int64
 	SelectedCategoryId    int64
+	DistrictId            int64
+	RegionId              int64
 	SelectedSubCategoryId int64
+	Regions               []Region
+	Districts             []Region
 }
 
 type Message struct {
@@ -174,4 +186,9 @@ type SubscriptionResponse struct {
 	Status  string      `json:"status"`
 	Success bool        `json:"success"`
 	Data    BalanceData `json:"data"`
+}
+
+type Region struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }

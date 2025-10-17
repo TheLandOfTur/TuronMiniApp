@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"io"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 
 	"github.com/OzodbekX/TuronMiniApp/logger"
 
@@ -494,5 +495,176 @@ func TerminateOwnSession(userData *volumes.UserSession) error {
 	defer resp.Body.Close()
 
 	loggers.Info("Response from terminating session", resp.Body)
+	return nil
+}
+
+// GetRegions fetches a list of available cities (regions) from the backend.
+func GetRegions(userData *volumes.UserSession) ([]volumes.Region, error) {
+	url := getBaseUrl("/api/v1/addresses/cities/public?limit=1000&offset=0")
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Language", userData.Language)
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read and check status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode JSON response
+	var result struct {
+		Status  string           `json:"status"`
+		Data    []volumes.Region `json:"data"`
+		Success bool             `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !result.Success {
+		return nil, fmt.Errorf("unsuccessful response: status = %s", result.Status)
+	}
+
+	return result.Data, nil
+}
+
+func GetDistricts(userData *volumes.UserSession, cityId int64) ([]volumes.Region, error) {
+	// Build URL safely
+	base := getBaseUrl("/api/v1/addresses/districts/public")
+
+	// Construct query params properly
+	params := fmt.Sprintf("?limit=1000&offset=0&cityId=%d", cityId)
+	url := base + params
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Language", userData.Language)
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read and check status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode JSON response
+	var result struct {
+		Status  string           `json:"status"`
+		Data    []volumes.Region `json:"data"`
+		Success bool             `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !result.Success {
+		return nil, fmt.Errorf("unsuccessful response: status = %s", result.Status)
+	}
+
+	return result.Data, nil
+}
+
+// SendApplicationToBackend sends a user's application data to the backend
+func SendApplicationToBackend(
+	regionID int64,
+	regionName string,
+	districtID int64,
+	districtName string,
+	fullName string,
+	phoneNumber string,
+	language string,
+	telegramID int64,
+	telegramPhoneNumber *string,
+) error {
+
+	url := getBaseUrl("/api/v1/users/myturonbot/send-data")
+
+	// 🧩 Build the request payload
+	payload := map[string]interface{}{
+		"cityId":              regionID,
+		"cityName":            regionName,
+		"districtId":          districtID,
+		"districtName":        districtName,
+		"fullName":            fullName,
+		"telegramPhoneNumber": phoneNumber,
+		"preferredLanguage":   language,
+		"telegramId":          telegramID,
+	}
+	// ✅ Only include optional field if not nil
+	if telegramPhoneNumber != nil && *telegramPhoneNumber != "" {
+		payload["phoneNumber"] = *telegramPhoneNumber
+	}
+
+	// 🧩 Encode payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	// 🧩 Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	// 🧩 Decode backend response
+	var result struct {
+		Status  string `json:"status"`
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	if !result.Success {
+		return fmt.Errorf("backend returned unsuccessful response: %s", result.Message)
+	}
 	return nil
 }

@@ -2,8 +2,12 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/OzodbekX/TuronMiniApp/helpers"
+	"log"
+	"runtime/debug"
+	"strings"
 	"sync"
+
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 
 	"github.com/OzodbekX/TuronMiniApp/handlers/chat"
 
@@ -69,4 +73,46 @@ func HandleMessage(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	}
 
 	conversations.HandleUpdateConversation(bot, update, &userSessions)
+}
+
+func HandleInlineTaps(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("[ERROR] panic recovered in handleInlineTaps: %v\n%s", r, debug.Stack())
+			if update != nil && update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
+				chatID := update.CallbackQuery.Message.Chat.ID
+				msg := tgbotapi.NewMessage(chatID, "⚠️ Something went wrong. Please try again.")
+				_, _ = bot.Send(msg)
+			}
+		}
+	}()
+
+	// --- Validate the callback query ---
+	if update.CallbackQuery == nil {
+		log.Println("[WARN] handleInlineTaps called with nil CallbackQuery")
+		return
+	}
+
+	callback := update.CallbackQuery
+	data := callback.Data
+	chatID := callback.Message.Chat.ID
+
+	log.Printf("[DEBUG] Inline tap detected from chatID=%d, data=%s", chatID, data)
+
+	// Always acknowledge callback (removes Telegram's "loading" spinner)
+	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
+
+	// --- Route callback based on prefix ---
+	switch {
+	case strings.HasPrefix(data, "district_"):
+		conversations.HandleDistrictSelection(bot, update, &userSessions)
+	case strings.HasPrefix(data, "region_"):
+		print("333333333333333333")
+		conversations.HandleRegionSelection(bot, update, &userSessions)
+
+	default:
+		log.Printf("[WARN] Unknown callback data: %s", data)
+		msg := tgbotapi.NewMessage(chatID, "❓ Unknown action.")
+		_, _ = bot.Send(msg)
+	}
 }
