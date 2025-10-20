@@ -17,6 +17,7 @@ const (
 	ENTER_FULL_NAME        = "ENTER_FULL_NAME"
 	ENTER_ADDITIONAL_PHONE = "ENTER_ADDITIONAL_PHONE"
 	CONFIRM_APPLICATION    = "CONFIRM_APPLICATION"
+	SUCCESSFUL_STATE_USER  = "SUCCESSFUL_STATE_USER"
 )
 
 type UserSession struct {
@@ -191,4 +192,20 @@ type SubscriptionResponse struct {
 type Region struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
+}
+
+type UserApplications struct {
+	TelegramID          int64  `json:"telegramId"`
+	PreferredLanguage   string `json:"preferredLanguage"`
+	CityID              int    `json:"cityId"`
+	CityName            string `json:"cityName"`
+	DistrictID          int    `json:"districtId"`
+	DistrictName        string `json:"districtName"`
+	FullName            string `json:"fullName"`
+	PhoneNumber         string `json:"phoneNumber"`
+	TelegramPhoneNumber string `json:"telegramPhoneNumber"`
+	TelegramUsername    string `json:"telegramUsername"`
+	RequestCategory     string `json:"requestCategory"`
+	RequestStatus       string `json:"requestStatus"`
+	CreatedAt           string `json:"createdAt"`
 }

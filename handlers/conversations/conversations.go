@@ -13,7 +13,6 @@ var lastMessageIDs sync.Map // To track the last message sent by the bot
 
 func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
-
 	session, _ := userSessions.LoadOrStore(chatID, &volumes.UserSession{State: volumes.SELECT_LANGUAGE})
 	user := session.(*volumes.UserSession)
 	switch user.State {
@@ -37,6 +36,8 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		handleFullNameInput(bot, update, userSessions)
 	case volumes.ENTER_ADDITIONAL_PHONE:
 		handleAdditionalPhoneInput(bot, update, userSessions)
+	case volumes.SUCCESSFUL_STATE_USER:
+		handleSuccessfulMessageState(bot, update, userSessions)
 	case volumes.CONFIRM_APPLICATION:
 		handleFinalSubmission(bot, update, userSessions)
 	case volumes.CHOOSE_LOCATIONS:

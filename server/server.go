@@ -590,6 +590,53 @@ func GetDistricts(userData *volumes.UserSession, cityId int64) ([]volumes.Region
 	return result.Data, nil
 }
 
+func MyApplications(userData *volumes.UserSession, userId int64) ([]volumes.UserApplications, error) {
+	// Build URL safely
+	base := getBaseUrl(fmt.Sprintf("/api/v1/users/myturonbot/%d/requests", userId))
+
+	// Construct query params properly
+	url := base
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Language", userData.Language)
+
+	// Perform the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read and check status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Decode JSON response
+	var result struct {
+		Status  string                     `json:"status"`
+		Data    []volumes.UserApplications `json:"data"`
+		Success bool                       `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if !result.Success {
+		return nil, fmt.Errorf("unsuccessful response: status = %s", result.Status)
+	}
+
+	return result.Data, nil
+}
+
 // SendApplicationToBackend sends a user's application data to the backend
 func SendApplicationToBackend(
 	regionID int64,
@@ -621,8 +668,8 @@ func SendApplicationToBackend(
 		payload["phoneNumber"] = *telegramPhoneNumber
 	}
 
-	// 🧩 Encode payload to JSON
 	jsonPayload, err := json.Marshal(payload)
+
 	if err != nil {
 		return fmt.Errorf("failed to marshal payload: %w", err)
 	}

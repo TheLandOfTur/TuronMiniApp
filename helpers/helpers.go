@@ -171,8 +171,6 @@ func GetFormattedPromoCodeMessage(promoResponse volumes.PromoCodeResponse, chatI
 	translate := func(key string) string {
 		return translations.GetTranslation(userSessions, chatID, key)
 	}
-	log.Printf("Starting server on port %s", promoResponse)
-
 	// Default icon and status based on the response status
 	statusIcon := "\U0001F534"                      // Default to red (failure)
 	statusMessage := translate("promoCodeNotFound") // Default to "Promo code inactive"

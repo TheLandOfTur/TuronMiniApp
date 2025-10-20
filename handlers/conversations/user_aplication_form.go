@@ -17,7 +17,6 @@ import (
 func writeLocationItems(bot *tgbotapi.BotAPI, chatID int64, regions []volumes.Region, title string, isRegion bool) {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	var tempRow []tgbotapi.InlineKeyboardButton
-
 	for i, region := range regions {
 		var keyword = fmt.Sprintf("district_%d", region.ID)
 		if isRegion {
@@ -167,8 +166,6 @@ func createApplicationText(user *volumes.UserSession, additionalPhone ...string)
 
 	phoneText := fmt.Sprintf("📞 %s", user.Phone)
 
-	log.Println("additionalPhone")
-	log.Println(additionalPhone)
 	// 🧩 Handle optional additional phone
 	additionalPhoneText := " "
 	if len(additionalPhone) > 0 {
@@ -209,6 +206,7 @@ func handleFullNameInput(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSess
 		bot.Send(retryMsg)
 		return
 	}
+
 	// ✅ Save full name to user session
 	user.FullName = text
 	user.State = volumes.ENTER_ADDITIONAL_PHONE
@@ -267,17 +265,16 @@ func getDistrictName(user *volumes.UserSession) string {
 
 func sendSuccessApplicationMessage(bot *tgbotapi.BotAPI, user *volumes.UserSession, userSessions *sync.Map, chatID int64) {
 	// ✅ Success message
-	bot.Send(tgbotapi.NewMessage(chatID, "✅ "+translations.GetTranslation(userSessions, chatID, "applicationSentSuccessfully")))
 	langKeyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "abonent")),
-			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "user")),
+			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "myApplications")),
+			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "exit")),
 		),
 	)
-	selectUserTypeMessage := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "chooseRole"))
+	selectUserTypeMessage := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "applicationSentSuccessfully"))
 	selectUserTypeMessage.ReplyMarkup = langKeyboard
 	bot.Send(selectUserTypeMessage)
-	user.State = volumes.CHOOSE_USER_TYPE
+	user.State = volumes.SUCCESSFUL_STATE_USER
 	return
 }
 

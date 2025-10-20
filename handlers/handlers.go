@@ -96,9 +96,6 @@ func HandleInlineTaps(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	callback := update.CallbackQuery
 	data := callback.Data
 	chatID := callback.Message.Chat.ID
-
-	log.Printf("[DEBUG] Inline tap detected from chatID=%d, data=%s", chatID, data)
-
 	// Always acknowledge callback (removes Telegram's "loading" spinner)
 	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 
@@ -107,7 +104,6 @@ func HandleInlineTaps(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	case strings.HasPrefix(data, "district_"):
 		conversations.HandleDistrictSelection(bot, update, &userSessions)
 	case strings.HasPrefix(data, "region_"):
-		print("333333333333333333")
 		conversations.HandleRegionSelection(bot, update, &userSessions)
 
 	default:
