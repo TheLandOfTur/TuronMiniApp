@@ -104,8 +104,6 @@ func handleSubCategorySelect(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 		return
 
 	}
-	fmt.Println(cachedSubCategories)
-
 	for _, category := range cachedSubCategories {
 		if strings.TrimSpace(category.Question) == strings.TrimSpace(selectedFAQName) {
 			selectedSubCategoryID = category.Id

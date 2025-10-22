@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/translations"
@@ -38,7 +39,11 @@ func handlePhoneNumber(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessio
 	// Update the user's session if the number is valid
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-		user.Phone = phoneNumber
+		if !strings.HasPrefix(phoneNumber, "+") {
+			user.Phone = "+" + phoneNumber
+		} else {
+			user.Phone = phoneNumber
+		}
 		user.State = volumes.CHOOSE_USER_TYPE
 	}
 

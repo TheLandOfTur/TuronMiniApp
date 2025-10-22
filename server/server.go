@@ -596,6 +596,7 @@ func MyApplications(userData *volumes.UserSession, userId int64) ([]volumes.User
 
 	// Construct query params properly
 	url := base
+	fmt.Println("userId", userId)
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
@@ -638,6 +639,7 @@ func MyApplications(userData *volumes.UserSession, userId int64) ([]volumes.User
 }
 
 // SendApplicationToBackend sends a user's application data to the backend
+// and returns the backend response if successful.
 func SendApplicationToBackend(
 	regionID int64,
 	regionName string,
@@ -647,8 +649,13 @@ func SendApplicationToBackend(
 	phoneNumber string,
 	language string,
 	telegramID int64,
-	telegramPhoneNumber *string,
-) error {
+	telegramUsername string,
+) (*struct {
+	Status  string `json:"status"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
+}, error) {
 
 	url := getBaseUrl("/api/v1/users/myturonbot/send-data")
 
@@ -663,21 +670,19 @@ func SendApplicationToBackend(
 		"preferredLanguage":   language,
 		"telegramId":          telegramID,
 	}
-	// ✅ Only include optional field if not nil
-	if telegramPhoneNumber != nil && *telegramPhoneNumber != "" {
-		payload["phoneNumber"] = *telegramPhoneNumber
+	if telegramUsername != "" {
+		payload["telegramUsername"] = telegramUsername
 	}
 
 	jsonPayload, err := json.Marshal(payload)
-
 	if err != nil {
-		return fmt.Errorf("failed to marshal payload: %w", err)
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -686,17 +691,17 @@ func SendApplicationToBackend(
 	// 🧩 Perform the request
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("server returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	// 🧩 Decode backend response
@@ -704,14 +709,16 @@ func SendApplicationToBackend(
 		Status  string `json:"status"`
 		Success bool   `json:"success"`
 		Message string `json:"message"`
+		Data    any    `json:"data,omitempty"`
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
+		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
 	if !result.Success {
-		return fmt.Errorf("backend returned unsuccessful response: %s", result.Message)
+		return &result, fmt.Errorf("backend returned unsuccessful response: %s", result.Message)
 	}
-	return nil
+
+	return &result, nil
 }

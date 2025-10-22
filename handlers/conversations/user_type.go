@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"log"
 	"sync"
 
 	"github.com/OzodbekX/TuronMiniApp/translations"
@@ -33,9 +34,13 @@ func identifyUserType(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSession
 
 		case translations.GetTranslation(userSessions, chatID, "user"):
 			// Regular user selected → move to region selection
-			user.State = volumes.CHOOSE_LOCATIONS
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterFullName"))
+			if _, err := bot.Send(msg); err != nil {
+				log.Printf("[ERROR] Failed to send full name prompt: %v", err)
+			}
+			user.State = volumes.ENTER_FULL_NAME
 			// Call function to fetch regions (will implement later)
-			fetchRegions(bot, chatID, userSessions)
+			//fetchRegions(bot, chatID, userSessions)
 			return
 		}
 	}

@@ -264,3 +264,19 @@ func GetBaseFAQUrl(apiPath string) string {
 	url := fmt.Sprintf("%s%s", BASE_FAQ_URL, apiPath)
 	return url
 }
+
+func DeleteTemporaryMessages(bot *tgbotapi.BotAPI, chatID int64, user *volumes.UserSession) {
+	if len(user.TemporaryMessages) == 0 {
+		return // nothing to delete
+	}
+
+	for _, msgID := range user.TemporaryMessages {
+		deleteMsg := tgbotapi.NewDeleteMessage(chatID, int(msgID))
+		if _, err := bot.Request(deleteMsg); err != nil {
+			log.Printf("[ERROR] Failed to delete message %d: %v", msgID, err)
+		}
+	}
+
+	// Clear the slice after deletion
+	user.TemporaryMessages = []int{}
+}

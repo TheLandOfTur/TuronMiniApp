@@ -240,7 +240,7 @@ func SendRequestToBackend(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync
 			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "mainMenu")),
 		),
 	)
-	reply := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "pleaseEnterYourName"))
+	reply := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterFullName"))
 	reply.ReplyMarkup = langKeyboard
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)

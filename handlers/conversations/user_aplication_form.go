@@ -3,18 +3,58 @@ package conversations
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/OzodbekX/TuronMiniApp/helpers"
 	"github.com/OzodbekX/TuronMiniApp/server"
 	"github.com/OzodbekX/TuronMiniApp/translations"
 	"github.com/OzodbekX/TuronMiniApp/volumes"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func writeLocationItems(bot *tgbotapi.BotAPI, chatID int64, regions []volumes.Region, title string, isRegion bool) {
+func handleFullNameInput(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	msg := update.Message
+	if msg == nil {
+		log.Println("[WARN] HandleFullNameInput called with nil message")
+		return
+	}
+	chatID := msg.Chat.ID
+	text := update.Message.Text
+	if text == translations.GetTranslation(userSessions, chatID, "abonent") || text == translations.GetTranslation(userSessions, chatID, "user") {
+		identifyUserType(bot, update, userSessions)
+		return
+	}
+	text = strings.TrimSpace(text)
+
+	sessionData, ok := userSessions.Load(chatID)
+	if !ok {
+		log.Printf("[WARN] No session found for chatID: %d", chatID)
+		return
+	}
+	user := sessionData.(*volumes.UserSession)
+
+	// 🧩 Validation: must be more than 3 letters
+	if len([]rune(text)) < 3 {
+		retryMsg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "fullNameTooShort"))
+		if retryMsg.Text == "" {
+			retryMsg.Text = translations.GetTranslation(userSessions, chatID, "placeEnterFullName")
+		}
+		removeKeyboard := tgbotapi.NewRemoveKeyboard(true)
+		retryMsg.ReplyMarkup = removeKeyboard
+		bot.Send(retryMsg)
+		return
+	}
+
+	// ✅ Save full name to user session
+	user.FullName = text
+	user.State = volumes.CHOOSE_REGIONS
+	fetchRegions(bot, chatID, userSessions)
+
+}
+
+func writeLocationItems(bot *tgbotapi.BotAPI, user *volumes.UserSession, chatID int64, regions []volumes.Region, title string, isRegion bool) {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	var tempRow []tgbotapi.InlineKeyboardButton
 	for i, region := range regions {
@@ -42,7 +82,14 @@ func writeLocationItems(bot *tgbotapi.BotAPI, chatID int64, regions []volumes.Re
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 	msg := tgbotapi.NewMessage(chatID, title)
 	msg.ReplyMarkup = inlineKeyboard
-	bot.Send(msg)
+	sentMsg, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("[ERROR] Failed to send message: %v", err)
+		return
+	}
+
+	// Assuming user is your *volumes.UserSession
+	user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
 }
 
 func fetchRegions(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
@@ -55,9 +102,71 @@ func fetchRegions(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 			return
 		}
 		user.Regions = regions
-		writeLocationItems(bot, chatID, regions, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurDistrict"), true)
+		writeLocationItems(bot, user, chatID, regions, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurDistrict"), true)
 	}
 
+}
+
+func handleRegionWrite(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		text := update.Message.Text
+		if text == translations.GetTranslation(userSessions, chatID, "backOneStep") {
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterFullName"))
+			roleKeyboard := tgbotapi.NewReplyKeyboard(
+				tgbotapi.NewKeyboardButtonRow(
+					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "abonent")),
+					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "user")),
+				),
+			)
+			msg.ReplyMarkup = roleKeyboard
+			if _, err := bot.Send(msg); err != nil {
+				log.Printf("[ERROR] Failed to send full name prompt: %v", err)
+			}
+			user.State = volumes.ENTER_FULL_NAME
+			return
+		}
+		helpers.DeleteTemporaryMessages(bot, chatID, user)
+		fetchRegions(bot, chatID, userSessions)
+	}
+}
+
+func handeDistrictWrite(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+	chatID := update.Message.Chat.ID
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		text := update.Message.Text
+		if text == translations.GetTranslation(userSessions, chatID, "backOneStep") {
+			helpers.DeleteTemporaryMessages(bot, chatID, user)
+			fetchRegions(bot, chatID, userSessions)
+			user.State = volumes.CHOOSE_REGIONS
+			return
+		}
+		summary := createApplicationText(userSessions, user, chatID, 0)
+		// 🧩 Send confirmation message
+		msgToSend := tgbotapi.NewMessage(chatID, summary)
+		backKeyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "backOneStep")),
+			),
+		)
+		msgToSend.ReplyMarkup = backKeyboard
+		sentMsg, err := bot.Send(msgToSend)
+		if err != nil {
+			log.Printf("[ERROR] Failed to send confirmation message: %v", err)
+		}
+		user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
+
+		districts, err := server.GetDistricts(user, int64(user.RegionId))
+		if err != nil {
+			log.Printf("⚠️ Error fetching districts")
+			return
+		}
+		user.State = volumes.CHOOSE_DISTRICTS
+		user.Districts = districts
+		writeLocationItems(bot, user, chatID, districts, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurRegion"), false)
+	}
 }
 
 func HandleRegionSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
@@ -87,14 +196,29 @@ func HandleRegionSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSe
 	if sessionData, ok := userSessions.Load(chatID); ok {
 		user := sessionData.(*volumes.UserSession)
 		user.RegionId = int64(regionID)
-		user.State = volumes.CHOOSE_LOCATIONS
+		user.State = volumes.CHOOSE_DISTRICTS
+		summary := createApplicationText(userSessions, user, chatID, 0)
+		// 🧩 Send confirmation message
+		msgToSend := tgbotapi.NewMessage(chatID, summary)
+		backKeyboard := tgbotapi.NewReplyKeyboard(
+			tgbotapi.NewKeyboardButtonRow(
+				tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "backOneStep")),
+			),
+		)
+		msgToSend.ReplyMarkup = backKeyboard
+		sentMsg, err := bot.Send(msgToSend)
+		if err != nil {
+			log.Printf("[ERROR] Failed to send full name prompt: %v", err)
+		}
+		user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
+
 		districts, err := server.GetDistricts(user, int64(regionID))
 		if err != nil {
 			bot.Request(tgbotapi.NewCallback(callback.ID, "⚠️ Error fetching districts"))
 			return
 		}
 		user.Districts = districts
-		writeLocationItems(bot, chatID, districts, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurRegion"), false)
+		writeLocationItems(bot, user, chatID, districts, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurRegion"), false)
 
 	}
 }
@@ -104,6 +228,11 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	chatID := callback.Message.Chat.ID
 	messageID := callback.Message.MessageID
 	data := callback.Data
+	if session, ok := userSessions.Load(chatID); ok {
+		user := session.(*volumes.UserSession)
+		helpers.DeleteTemporaryMessages(bot, chatID, user)
+	}
+
 	_, _ = bot.Request(tgbotapi.NewCallback(callback.ID, ""))
 	if !strings.HasPrefix(data, "district_") {
 		return
@@ -114,7 +243,9 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	}
 	// Extract the numeric ID
 	idStr := strings.TrimPrefix(data, "district_")
+
 	districtID, err := strconv.Atoi(idStr)
+
 	if err != nil {
 		bot.Request(tgbotapi.NewCallback(callback.ID, "⚠️ Invalid district"))
 		return
@@ -122,115 +253,129 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	if sessionData, ok := userSessions.Load(chatID); ok {
 		user := sessionData.(*volumes.UserSession)
 		user.DistrictId = int64(districtID)
-		user.State = volumes.ENTER_FULL_NAME
-		removeKeyboard := tgbotapi.NewRemoveKeyboard(true)
-		msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterFullName"))
-		msg.ReplyMarkup = removeKeyboard
-		if _, err := bot.Send(msg); err != nil {
-			log.Printf("[ERROR] Failed to send full name prompt: %v", err)
+		user.State = volumes.SUCCESSFUL_STATE_USER
+		telegramUserID := update.CallbackQuery.From.ID // 👈 this is the TelegramUserID
+		var username string
+		if callback.From != nil {
+			username = callback.From.UserName
 		}
+		result, err := server.SendApplicationToBackend(
+			user.RegionId,
+			getRegionName(user),
+			user.DistrictId,
+			getDistrictName(user),
+			user.FullName,
+			user.Phone,
+			user.Language,
+			telegramUserID,
+			username,
+		)
+
+		if err != nil {
+			log.Println("❌ Error sending application:", err)
+			return
+		}
+		var requestId int64 = 0
+		log.Println("result", result)
+
+		if result.Data != nil {
+			// Try to interpret Data as a map (most JSON API responses decode into map[string]interface{})
+			if dataMap, ok := result.Data.(map[string]interface{}); ok {
+				if idVal, ok := dataMap["id"]; ok {
+					// Handle if backend sends numeric ID (float64 is default for JSON numbers)
+					switch v := idVal.(type) {
+					case float64:
+						requestId = int64(v)
+					case int:
+						requestId = int64(v)
+					case int64:
+						requestId = v
+					}
+				}
+			}
+		}
+		log.Println("requestId", requestId)
+
+		inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonURL(translations.GetTranslation(userSessions, chatID, "sendApplication"), "https://t.me/TuronTelecomSales"),
+			),
+		)
+
+		var applicationText = createApplicationText(userSessions, user, chatID, requestId)
+		message := tgbotapi.NewMessage(chatID, applicationText)
+		message.ReplyMarkup = inlineKeyboard
+		sentMsg, err := bot.Send(message)
+		if err != nil {
+			log.Printf("[ERROR] Failed to send phone number prompt: %v", err)
+		}
+		if err != nil {
+			log.Printf("[ERROR] Failed to send confirmation message: %v", err)
+		}
+		user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
+
 	} else {
 		log.Printf("[WARN] No session found for chatID: %d", chatID)
 	}
 }
 
-func createApplicationText(user *volumes.UserSession, additionalPhone ...string) string {
-	// 🧩 Find selected Region and District names
-	var regionName, districtName string
+func createApplicationText(userSessions *sync.Map, user *volumes.UserSession, chatID int64, requestId int64) string {
+	var result strings.Builder
 
+	// 1️⃣ Title (Application Ready)
+	if requestId > 0 {
+		switch user.Language {
+		case "ru":
+			result.WriteString(fmt.Sprintf("🆔 Заявка под номером №%d готова\n", requestId))
+		case "uz":
+			result.WriteString(fmt.Sprintf("🆔 №%d raqamli ariza tayyor\n", requestId))
+		default:
+			result.WriteString(fmt.Sprintf("🆔 Application №%d is ready\n", requestId))
+		}
+	}
+
+	// 🔹 Translations
+	titleFullName := translations.GetTranslation(userSessions, chatID, "fullName") // 👤 Full name
+	titlePhone := translations.GetTranslation(userSessions, chatID, "phoneNumber") // 📞 Phone
+	titleRegion := translations.GetTranslation(userSessions, chatID, "city")       // 🏙️ Region
+	titleDistrict := translations.GetTranslation(userSessions, chatID, "district") // 📍 District
+
+	// 2️⃣ Full Name
+	if strings.TrimSpace(user.FullName) != "" {
+		result.WriteString(fmt.Sprintf("👤 %s: %s\n", titleFullName, user.FullName))
+	}
+
+	// 3️⃣ Phone
+	if strings.TrimSpace(user.Phone) != "" {
+		result.WriteString(fmt.Sprintf("📞 %s: %s\n", titlePhone, user.Phone))
+	}
+
+	// 4️⃣ Region
+	var regionName string
 	for _, r := range user.Regions {
 		if r.ID == user.RegionId {
 			regionName = r.Name
 			break
 		}
 	}
+	if strings.TrimSpace(regionName) != "" {
+		result.WriteString(fmt.Sprintf("🏙️ %s: %s\n", titleRegion, regionName))
+	}
 
+	// 5️⃣ District
+	var districtName string
 	for _, d := range user.Districts {
 		if d.ID == user.DistrictId {
 			districtName = d.Name
 			break
 		}
 	}
-
-	if regionName == "" {
-		regionName = "—"
-	}
-	if districtName == "" {
-		districtName = "—"
+	if strings.TrimSpace(districtName) != "" {
+		result.WriteString(fmt.Sprintf("📍 %s: %s\n", titleDistrict, districtName))
 	}
 
-	// 🧩 Build summary text
-	fullNameText := fmt.Sprintf("👤 %s", user.FullName)
-	regionText := fmt.Sprintf("🏙️ %s", regionName)
-	districtText := fmt.Sprintf("📍 %s", districtName)
-
-	phoneText := fmt.Sprintf("📞 %s", user.Phone)
-
-	// 🧩 Handle optional additional phone
-	additionalPhoneText := " "
-	if len(additionalPhone) > 0 {
-		additionalPhoneText = fmt.Sprintf("\n📞➕ %s", additionalPhone[0])
-	}
-
-	return fmt.Sprintf("%s\n%s\n%s\n%s%s",
-		fullNameText,
-		regionText,
-		districtText,
-		phoneText,
-		additionalPhoneText,
-	)
-}
-
-func handleFullNameInput(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
-	msg := update.Message
-	if msg == nil {
-		log.Println("[WARN] HandleFullNameInput called with nil message")
-		return
-	}
-	chatID := msg.Chat.ID
-	text := strings.TrimSpace(msg.Text)
-
-	sessionData, ok := userSessions.Load(chatID)
-	if !ok {
-		log.Printf("[WARN] No session found for chatID: %d", chatID)
-		return
-	}
-	user := sessionData.(*volumes.UserSession)
-
-	// 🧩 Validation: must be more than 3 letters
-	if len([]rune(text)) < 3 {
-		retryMsg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "fullNameTooShort"))
-		if retryMsg.Text == "" {
-			retryMsg.Text = translations.GetTranslation(userSessions, chatID, "placeEnterFullName")
-		}
-		bot.Send(retryMsg)
-		return
-	}
-
-	// ✅ Save full name to user session
-	user.FullName = text
-	user.State = volumes.ENTER_ADDITIONAL_PHONE
-
-	var applicationText = createApplicationText(user)
-	message := tgbotapi.NewMessage(chatID, applicationText)
-	if _, err := bot.Send(message); err != nil {
-		log.Printf("[ERROR] Failed to send phone number prompt: %v", err)
-	}
-	// 🧩 Ask for additional phone number
-	phonePrompt := translations.GetTranslation(userSessions, chatID, "enterAdditionalPhone")
-	keyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "sendApplication")),
-		),
-	)
-	keyboard.OneTimeKeyboard = true // Show keyboard only once
-	keyboard.ResizeKeyboard = true  // Adjust keyboard size to fit the screen
-	msgToSend := tgbotapi.NewMessage(chatID, phonePrompt)
-	msgToSend.ReplyMarkup = keyboard
-
-	if _, err := bot.Send(msgToSend); err != nil {
-		log.Printf("[ERROR] Failed to send phone number prompt: %v", err)
-	}
+	// Remove any trailing newline
+	return strings.TrimSpace(result.String())
 }
 
 // getRegionName returns the name of the region selected by the user.
@@ -268,7 +413,7 @@ func sendSuccessApplicationMessage(bot *tgbotapi.BotAPI, user *volumes.UserSessi
 	langKeyboard := tgbotapi.NewReplyKeyboard(
 		tgbotapi.NewKeyboardButtonRow(
 			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "myApplications")),
-			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "exit")),
+			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "exit1")),
 		),
 	)
 	selectUserTypeMessage := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "applicationSentSuccessfully"))
@@ -278,135 +423,26 @@ func sendSuccessApplicationMessage(bot *tgbotapi.BotAPI, user *volumes.UserSessi
 	return
 }
 
-func handleAdditionalPhoneInput(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
+func afterClickSubmit(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	msg := update.Message
-	if msg == nil {
-		log.Println("[WARN] HandleAdditionalPhoneInput called with nil message")
-		return
-	}
-	chatID := msg.Chat.ID
-	text := strings.TrimSpace(msg.Text)
-	telegramUserID := msg.From.ID // 👈 this is the TelegramUserID
-
-	sessionData, ok := userSessions.Load(chatID)
-	if !ok {
-		log.Printf("[WARN] No session found for chatID: %d", chatID)
-		return
-	}
-	user := sessionData.(*volumes.UserSession)
-
-	sendAppText := translations.GetTranslation(userSessions, chatID, "sendApplication")
-	// ✅ If user clicked “Send Application”
-	if text == sendAppText {
-		err := server.SendApplicationToBackend(
-			user.RegionId,
-			getRegionName(user),
-			user.DistrictId,
-			getDistrictName(user),
-			user.FullName,
-			user.Phone,
-			user.Language,
-			telegramUserID,
-			nil,
-		)
-
-		if err != nil {
-			log.Printf("[ERROR] Failed to send application: %v", err)
-			bot.Send(tgbotapi.NewMessage(chatID, "❌ "+translations.GetTranslation(userSessions, chatID, "failedToSendApp")))
-			return
-		}
-
-		sendSuccessApplicationMessage(bot, user, userSessions, chatID)
-		return
-	}
-	// 🧩 Save phone number (optional)
-	if text != "" {
-		if !regexp.MustCompile(`^\+998\d{9}$`).MatchString(text) {
-			errMsg := translations.GetTranslation(userSessions, chatID, "invalidPhoneNumber")
-			if errMsg == "" {
-				errMsg = translations.GetTranslation(userSessions, chatID, "wrongPhoneNumber")
+	chatID := update.Message.Chat.ID
+	if sessionData, ok := userSessions.Load(chatID); ok {
+		user := sessionData.(*volumes.UserSession)
+		if msg.Text == translations.GetTranslation(userSessions, chatID, "backOneStep") {
+			districts, err := server.GetDistricts(user, int64(user.RegionId))
+			if err != nil {
+				log.Printf("⚠️ Error fetching districts")
+				return
 			}
-			bot.Send(tgbotapi.NewMessage(chatID, errMsg))
+			user.State = volumes.CHOOSE_DISTRICTS
+			user.Districts = districts
+			writeLocationItems(bot, user, chatID, districts, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurRegion"), false)
 			return
 		}
-		user.AdditionalPhone = text
-	}
-	// 🧩 Move to next state
-	user.State = volumes.CONFIRM_APPLICATION
-	// 🧩 Add keyboard button to send application
-	sendButton := tgbotapi.NewKeyboardButton(
-		translations.GetTranslation(userSessions, chatID, "sendApplication"),
-	)
-	replyKeyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(sendButton),
-	)
-	replyKeyboard.OneTimeKeyboard = true
-	replyKeyboard.ResizeKeyboard = true
-	summary := createApplicationText(user, text)
-	// 🧩 Send confirmation message
-	msgToSend := tgbotapi.NewMessage(chatID, summary)
-	msgToSend.ReplyMarkup = replyKeyboard
-	if _, err := bot.Send(msgToSend); err != nil {
-		log.Printf("[ERROR] Failed to send confirmation message: %v", err)
-	}
-}
-
-func handleFinalSubmission(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
-	msg := update.Message
-	if msg == nil {
-		log.Println("[WARN] HandleAdditionalPhoneInput called with nil message")
-		return
-	}
-	chatID := msg.Chat.ID
-	text := strings.TrimSpace(msg.Text)
-	telegramUserID := msg.From.ID // 👈 this is the TelegramUserID
-
-	sessionData, ok := userSessions.Load(chatID)
-	if !ok {
-		log.Printf("[WARN] No session found for chatID: %d", chatID)
-		return
-	}
-	user := sessionData.(*volumes.UserSession)
-
-	sendAppText := translations.GetTranslation(userSessions, chatID, "sendApplication")
-	// ✅ If user clicked “Send Application”
-	if text == sendAppText {
-		err := server.SendApplicationToBackend(
-			user.RegionId,
-			getRegionName(user),
-			user.DistrictId,
-			getDistrictName(user),
-			user.FullName,
-			user.Phone,
-			user.Language,
-			telegramUserID,
-			&user.AdditionalPhone,
-		)
-		if err != nil {
-			log.Printf("[ERROR] Failed to send application: %v", err)
-			bot.Send(tgbotapi.NewMessage(chatID, "❌ "+translations.GetTranslation(userSessions, chatID, "failedToSendApp")))
-			return
-		}
-
 		sendSuccessApplicationMessage(bot, user, userSessions, chatID)
+		user.State = volumes.USER_CABINET
 		return
+
 	}
 
-	user.State = volumes.CONFIRM_APPLICATION
-	// 🧩 Add keyboard button to send application
-	sendButton := tgbotapi.NewKeyboardButton(
-		translations.GetTranslation(userSessions, chatID, "sendApplication"),
-	)
-	replyKeyboard := tgbotapi.NewReplyKeyboard(
-		tgbotapi.NewKeyboardButtonRow(sendButton),
-	)
-	replyKeyboard.OneTimeKeyboard = true
-	replyKeyboard.ResizeKeyboard = true
-	summary := createApplicationText(user, user.AdditionalPhone)
-	// 🧩 Send confirmation message
-	msgToSend := tgbotapi.NewMessage(chatID, summary)
-	msgToSend.ReplyMarkup = replyKeyboard
-	if _, err := bot.Send(msgToSend); err != nil {
-		log.Printf("[ERROR] Failed to send confirmation message: %v", err)
-	}
 }

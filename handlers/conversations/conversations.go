@@ -32,19 +32,25 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		onchangeLanguage(bot, update, userSessions)
 	case volumes.ACTIVATE_PROMOCODE:
 		checkActivePromoCode(bot, update, userSessions)
+
 	case volumes.ENTER_FULL_NAME:
 		handleFullNameInput(bot, update, userSessions)
-	case volumes.ENTER_ADDITIONAL_PHONE:
-		handleAdditionalPhoneInput(bot, update, userSessions)
-	case volumes.SUCCESSFUL_STATE_USER:
-		handleSuccessfulMessageState(bot, update, userSessions)
-	case volumes.CONFIRM_APPLICATION:
-		handleFinalSubmission(bot, update, userSessions)
-	case volumes.CHOOSE_LOCATIONS:
+	case volumes.CHOOSE_REGIONS:
 		if update.Message.Text != "" {
-			identifyUserType(bot, update, userSessions)
+			handleRegionWrite(bot, update, userSessions)
 		}
+	case volumes.CHOOSE_DISTRICTS:
+		if update.Message.Text != "" {
+			handeDistrictWrite(bot, update, userSessions)
+		}
+	case volumes.SUCCESSFUL_STATE_USER:
+		afterClickSubmit(bot, update, userSessions)
+	case volumes.SUBMIT_USER_APPLICATION:
+		afterClickSubmit(bot, update, userSessions)
+
 	case volumes.SELECT_CATEGORY, volumes.SELECT_FAQ:
 		chat.HandleChatConversation(bot, update, userSessions, user)
+	case volumes.USER_CABINET:
+		handleSuccessfulMessageState(bot, update, userSessions)
 	}
 }
