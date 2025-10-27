@@ -43,11 +43,6 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 		if update.Message.Text != "" {
 			handeDistrictWrite(bot, update, userSessions)
 		}
-	case volumes.SUCCESSFUL_STATE_USER:
-		afterClickSubmit(bot, update, userSessions)
-	case volumes.SUBMIT_USER_APPLICATION:
-		afterClickSubmit(bot, update, userSessions)
-
 	case volumes.SELECT_CATEGORY, volumes.SELECT_FAQ:
 		chat.HandleChatConversation(bot, update, userSessions, user)
 	case volumes.USER_CABINET:

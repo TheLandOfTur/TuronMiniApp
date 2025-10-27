@@ -253,7 +253,7 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 	if sessionData, ok := userSessions.Load(chatID); ok {
 		user := sessionData.(*volumes.UserSession)
 		user.DistrictId = int64(districtID)
-		user.State = volumes.SUCCESSFUL_STATE_USER
+		user.State = volumes.USER_CABINET
 		telegramUserID := update.CallbackQuery.From.ID // 👈 this is the TelegramUserID
 		var username string
 		if callback.From != nil {
@@ -276,8 +276,6 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 			return
 		}
 		var requestId int64 = 0
-		log.Println("result", result)
-
 		if result.Data != nil {
 			// Try to interpret Data as a map (most JSON API responses decode into map[string]interface{})
 			if dataMap, ok := result.Data.(map[string]interface{}); ok {
@@ -294,14 +292,11 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 				}
 			}
 		}
-		log.Println("requestId", requestId)
-
 		inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonURL(translations.GetTranslation(userSessions, chatID, "sendApplication"), "https://t.me/TuronTelecomSales"),
+				tgbotapi.NewInlineKeyboardButtonURL(translations.GetTranslation(userSessions, chatID, "connectWithOperator"), "https://t.me/TuronTelecomSales"),
 			),
 		)
-
 		var applicationText = createApplicationText(userSessions, user, chatID, requestId)
 		message := tgbotapi.NewMessage(chatID, applicationText)
 		message.ReplyMarkup = inlineKeyboard
@@ -313,6 +308,7 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 			log.Printf("[ERROR] Failed to send confirmation message: %v", err)
 		}
 		user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
+		sendSuccessApplicationMessage(bot, user, userSessions, chatID)
 
 	} else {
 		log.Printf("[WARN] No session found for chatID: %d", chatID)
@@ -324,14 +320,7 @@ func createApplicationText(userSessions *sync.Map, user *volumes.UserSession, ch
 
 	// 1️⃣ Title (Application Ready)
 	if requestId > 0 {
-		switch user.Language {
-		case "ru":
-			result.WriteString(fmt.Sprintf("🆔 Заявка под номером №%d готова\n", requestId))
-		case "uz":
-			result.WriteString(fmt.Sprintf("🆔 №%d raqamli ariza tayyor\n", requestId))
-		default:
-			result.WriteString(fmt.Sprintf("🆔 Application №%d is ready\n", requestId))
-		}
+		result.WriteString(translations.GetTranslation(userSessions, chatID, "applicationSentSuccessfully") + "\n")
 	}
 
 	// 🔹 Translations
@@ -416,33 +405,9 @@ func sendSuccessApplicationMessage(bot *tgbotapi.BotAPI, user *volumes.UserSessi
 			tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "exit1")),
 		),
 	)
-	selectUserTypeMessage := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "applicationSentSuccessfully"))
+	selectUserTypeMessage := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "PleaseSelectOption"))
 	selectUserTypeMessage.ReplyMarkup = langKeyboard
 	bot.Send(selectUserTypeMessage)
-	user.State = volumes.SUCCESSFUL_STATE_USER
+	user.State = volumes.USER_CABINET
 	return
-}
-
-func afterClickSubmit(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
-	msg := update.Message
-	chatID := update.Message.Chat.ID
-	if sessionData, ok := userSessions.Load(chatID); ok {
-		user := sessionData.(*volumes.UserSession)
-		if msg.Text == translations.GetTranslation(userSessions, chatID, "backOneStep") {
-			districts, err := server.GetDistricts(user, int64(user.RegionId))
-			if err != nil {
-				log.Printf("⚠️ Error fetching districts")
-				return
-			}
-			user.State = volumes.CHOOSE_DISTRICTS
-			user.Districts = districts
-			writeLocationItems(bot, user, chatID, districts, translations.GetTranslation(userSessions, chatID, "pleaseSelectYurRegion"), false)
-			return
-		}
-		sendSuccessApplicationMessage(bot, user, userSessions, chatID)
-		user.State = volumes.USER_CABINET
-		return
-
-	}
-
 }
