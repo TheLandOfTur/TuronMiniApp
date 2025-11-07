@@ -271,12 +271,17 @@ func DeleteTemporaryMessages(bot *tgbotapi.BotAPI, chatID int64, user *volumes.U
 	}
 
 	for _, msgID := range user.TemporaryMessages {
+		if chatID == 0 || msgID <= 0 {
+			continue // skip invalid IDs silently
+		}
+
 		deleteMsg := tgbotapi.NewDeleteMessage(chatID, int(msgID))
 		if _, err := bot.Request(deleteMsg); err != nil {
-			log.Printf("[ERROR] Failed to delete message %d: %v", msgID, err)
+			// Log the error, but continue with the rest
+			log.Printf("[WARN] Could not delete message %d: %v", msgID, err)
+			continue
 		}
 	}
-
 	// Clear the slice after deletion
 	user.TemporaryMessages = []int{}
 }

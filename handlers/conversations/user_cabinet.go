@@ -19,7 +19,7 @@ func writeUserApplications(bot *tgbotapi.BotAPI, chatID int64, userSessions *syn
 
 		response := fmt.Sprintf(
 			"📄 *%s*\n\n"+
-				"👤 *%s*: %s\n"+
+				//"👤 *%s*: %s\n"+
 				"📞 *%s*: %s\n"+
 				"🌆 *%s*: %s\n"+
 				"🏘 *%s*: %s\n"+
@@ -27,7 +27,7 @@ func writeUserApplications(bot *tgbotapi.BotAPI, chatID int64, userSessions *syn
 				"📅 *%s*: %s\n",
 			//"📈 *%s*: %s\n",
 			translations.GetTranslation(userSessions, chatID, "applicationTitle"),
-			translations.GetTranslation(userSessions, chatID, "fullName"), app.FullName,
+			//translations.GetTranslation(userSessions, chatID, "fullName"), app.FullName,
 			translations.GetTranslation(userSessions, chatID, "phoneNumber"), app.TelegramPhoneNumber,
 			translations.GetTranslation(userSessions, chatID, "city"), app.CityName,
 			translations.GetTranslation(userSessions, chatID, "district"), app.DistrictName,

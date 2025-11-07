@@ -109,11 +109,16 @@ func fetchRegions(bot *tgbotapi.BotAPI, chatID int64, userSessions *sync.Map) {
 
 func handleRegionWrite(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessions *sync.Map) {
 	chatID := update.Message.Chat.ID
+	text := update.Message.Text
+
+	if text == translations.GetTranslation(userSessions, chatID, "abonent") || text == translations.GetTranslation(userSessions, chatID, "user") {
+		identifyUserType(bot, update, userSessions)
+		return
+	}
 	if session, ok := userSessions.Load(chatID); ok {
 		user := session.(*volumes.UserSession)
-		text := update.Message.Text
 		if text == translations.GetTranslation(userSessions, chatID, "backOneStep") {
-			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "enterFullName"))
+			msg := tgbotapi.NewMessage(chatID, translations.GetTranslation(userSessions, chatID, "chooseRole"))
 			roleKeyboard := tgbotapi.NewReplyKeyboard(
 				tgbotapi.NewKeyboardButtonRow(
 					tgbotapi.NewKeyboardButton(translations.GetTranslation(userSessions, chatID, "abonent")),
@@ -124,7 +129,7 @@ func handleRegionWrite(bot *tgbotapi.BotAPI, update *tgbotapi.Update, userSessio
 			if _, err := bot.Send(msg); err != nil {
 				log.Printf("[ERROR] Failed to send full name prompt: %v", err)
 			}
-			user.State = volumes.ENTER_FULL_NAME
+			user.State = volumes.CHOOSE_USER_TYPE
 			return
 		}
 		helpers.DeleteTemporaryMessages(bot, chatID, user)
@@ -264,7 +269,7 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 			getRegionName(user),
 			user.DistrictId,
 			getDistrictName(user),
-			user.FullName,
+			"user",
 			user.Phone,
 			user.Language,
 			telegramUserID,
@@ -324,15 +329,15 @@ func createApplicationText(userSessions *sync.Map, user *volumes.UserSession, ch
 	}
 
 	// 🔹 Translations
-	titleFullName := translations.GetTranslation(userSessions, chatID, "fullName") // 👤 Full name
+	//titleFullName := translations.GetTranslation(userSessions, chatID, "fullName") // 👤 Full name
 	titlePhone := translations.GetTranslation(userSessions, chatID, "phoneNumber") // 📞 Phone
 	titleRegion := translations.GetTranslation(userSessions, chatID, "city")       // 🏙️ Region
 	titleDistrict := translations.GetTranslation(userSessions, chatID, "district") // 📍 District
 
 	// 2️⃣ Full Name
-	if strings.TrimSpace(user.FullName) != "" {
-		result.WriteString(fmt.Sprintf("👤 %s: %s\n", titleFullName, user.FullName))
-	}
+	//if strings.TrimSpace(user.FullName) != "" {
+	//	result.WriteString(fmt.Sprintf("👤 %s: %s\n", titleFullName, user.FullName))
+	//}
 
 	// 3️⃣ Phone
 	if strings.TrimSpace(user.Phone) != "" {

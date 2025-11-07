@@ -33,8 +33,8 @@ func HandleUpdateConversation(bot *tgbotapi.BotAPI, update *tgbotapi.Update, use
 	case volumes.ACTIVATE_PROMOCODE:
 		checkActivePromoCode(bot, update, userSessions)
 
-	case volumes.ENTER_FULL_NAME:
-		handleFullNameInput(bot, update, userSessions)
+	//case volumes.ENTER_FULL_NAME:
+	//	handleFullNameInput(bot, update, userSessions)
 	case volumes.CHOOSE_REGIONS:
 		if update.Message.Text != "" {
 			handleRegionWrite(bot, update, userSessions)
