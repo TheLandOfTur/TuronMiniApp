@@ -313,6 +313,9 @@ func HandleDistrictSelection(bot *tgbotapi.BotAPI, update *tgbotapi.Update, user
 			log.Printf("[ERROR] Failed to send confirmation message: %v", err)
 		}
 		user.TemporaryMessages = append(user.TemporaryMessages, sentMsg.MessageID)
+		user.DistrictId = 0
+		user.RegionId = 0
+		user.Regions = nil
 		sendSuccessApplicationMessage(bot, user, userSessions, chatID)
 
 	} else {
@@ -364,7 +367,7 @@ func createApplicationText(userSessions *sync.Map, user *volumes.UserSession, ch
 			break
 		}
 	}
-	if strings.TrimSpace(districtName) != "" {
+	if strings.TrimSpace(districtName) != "" && user.DistrictId != 0 {
 		result.WriteString(fmt.Sprintf("📍 %s: %s\n", titleDistrict, districtName))
 	}
 
